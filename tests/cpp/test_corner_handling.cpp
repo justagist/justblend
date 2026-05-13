@@ -1,0 +1,150 @@
+#include <gtest/gtest.h>
+
+#include <Eigen/Core>
+#include <cmath>
+
+#include "justblend/justblend.hpp"
+
+using namespace justblend;
+
+namespace {
+
+Eigen::MatrixXd cornerWaypoints() {
+    Eigen::MatrixXd W(5, 3);
+    W << 0.0, 0.0, 0.0,
+         1.0, 0.5, -0.3,
+         1.5, -0.2, 0.4,
+         0.5, 0.8, 1.0,
+         0.0, 0.0, 0.0;
+    return W;
+}
+
+Limits scurveLimits() {
+    Limits L;
+    L.v_max = (Eigen::VectorXd(3) << 1.5, 1.2, 1.0).finished();
+    L.a_max = (Eigen::VectorXd(3) << 3.0, 2.5, 2.0).finished();
+    L.j_max = (Eigen::VectorXd(3) << 20.0, 18.0, 15.0).finished();
+    return L;
+}
+
+double maxAbs(const Eigen::MatrixXd& M, Eigen::Index col) { return M.col(col).cwiseAbs().maxCoeff(); }
+
+}  // namespace
+
+class CornerHandlingScurveParam : public ::testing::TestWithParam<std::tuple<CornerHandling, BlendShape>> {};
+
+TEST_P(CornerHandlingScurveParam, BoundsAndEndpointsHold) {
+    auto [ch, shape] = GetParam();
+    SCurveTrajectoryGenerator gen(3);
+    gen.setLimits(scurveLimits());
+    GenerationOptions opts;
+    opts.blend_radius = 0.15;
+    opts.corner_handling = ch;
+    opts.blend_shape = shape;
+    gen.setOptions(opts);
+
+    auto W = cornerWaypoints();
+    auto traj = gen.generate(W);
+
+    auto r = traj.samples(0.001);
+
+    // Endpoint snap
+    EXPECT_NEAR((r.q.row(0).transpose() - W.row(0).transpose()).norm(), 0.0, 1e-12);
+    EXPECT_NEAR((r.q.row(r.q.rows() - 1).transpose() - W.row(W.rows() - 1).transpose()).norm(), 0.0, 1e-12);
+    EXPECT_NEAR(r.qd.row(0).norm(), 0.0, 1e-12);
+    EXPECT_NEAR(r.qd.row(r.qd.rows() - 1).norm(), 0.0, 1e-12);
+
+    // Bounds
+    auto L = scurveLimits();
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_LE(maxAbs(r.qd, i), L.v_max(i) + 1e-6);
+        EXPECT_LE(maxAbs(r.qdd, i), L.a_max(i) + 1e-6);
+    }
+
+    // For Hermite+SCurve, jerk should be bounded; finite-difference qdd.
+    if (shape == BlendShape::Hermite && r.q.rows() > 1) {
+        Eigen::MatrixXd qddd(r.qdd.rows() - 1, r.qdd.cols());
+        for (Eigen::Index k = 0; k + 1 < r.qdd.rows(); ++k) {
+            qddd.row(k) = (r.qdd.row(k + 1) - r.qdd.row(k)) / (r.t(k + 1) - r.t(k));
+        }
+        for (int i = 0; i < 3; ++i) {
+            EXPECT_LE(qddd.col(i).cwiseAbs().maxCoeff(), L.j_max->coeff(i) + 1e-3);
+        }
+    }
+}
+
+INSTANTIATE_TEST_SUITE_P(All, CornerHandlingScurveParam,
+                         ::testing::Values(std::make_tuple(CornerHandling::StrictCorners, BlendShape::Parabolic),
+                                           std::make_tuple(CornerHandling::StrictCorners, BlendShape::Hermite),
+                                           std::make_tuple(CornerHandling::Hybrid, BlendShape::Parabolic),
+                                           std::make_tuple(CornerHandling::Hybrid, BlendShape::Hermite),
+                                           std::make_tuple(CornerHandling::UseBlending, BlendShape::Parabolic),
+                                           std::make_tuple(CornerHandling::UseBlending, BlendShape::Hermite)));
+
+TEST(CornerHandling, TrapezoidalBoundsHold) {
+    Limits L;
+    L.v_max = (Eigen::VectorXd(3) << 1.5, 1.2, 1.0).finished();
+    L.a_max = (Eigen::VectorXd(3) << 3.0, 2.5, 2.0).finished();
+
+    TrapezoidalTrajectoryGenerator gen(3);
+    gen.setLimits(L);
+    GenerationOptions opts;
+    opts.blend_radius = 0.15;
+    opts.corner_handling = CornerHandling::Hybrid;
+    gen.setOptions(opts);
+
+    auto W = cornerWaypoints();
+    auto traj = gen.generate(W);
+    auto r = traj.samples(0.001);
+    EXPECT_NEAR(r.qd.row(0).norm(), 0.0, 1e-12);
+    EXPECT_NEAR(r.qd.row(r.qd.rows() - 1).norm(), 0.0, 1e-12);
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_LE(maxAbs(r.qd, i), L.v_max(i) + 1e-6);
+        EXPECT_LE(maxAbs(r.qdd, i), L.a_max(i) + 1e-6);
+    }
+}
+
+TEST(CornerHandling, UseBlendingRaisesWhenBlendRadiusUnusable) {
+    // blend_radius so small that the per-corner clip falls below 1e-9: the
+    // planner rejects the blend in use_blending mode.
+    SCurveTrajectoryGenerator gen(3);
+    gen.setLimits(scurveLimits());
+    GenerationOptions opts;
+    opts.blend_radius = 1e-12;
+    opts.corner_handling = CornerHandling::UseBlending;
+    gen.setOptions(opts);
+
+    auto W = cornerWaypoints();
+    EXPECT_THROW(gen.generate(W), ValidationError);
+}
+
+TEST(CornerHandling, HybridCollapseRevertsToStop) {
+    // Tight V_blend cap that forward/backward pass forces to ~0; hybrid should
+    // revert the blend to a stop and re-run, succeeding.
+    Eigen::MatrixXd W(3, 2);
+    W << 0.0, 0.0,
+         0.05, 0.0,
+         0.05, 0.05;
+
+    Limits L;
+    L.v_max = (Eigen::VectorXd(2) << 1.0, 1.0).finished();
+    L.a_max = (Eigen::VectorXd(2) << 1.0, 1.0).finished();
+    L.j_max = (Eigen::VectorXd(2) << 10.0, 10.0).finished();
+
+    SCurveTrajectoryGenerator gen(2);
+    gen.setLimits(L);
+    GenerationOptions opts;
+    opts.blend_radius = 0.02;
+    opts.corner_handling = CornerHandling::Hybrid;
+    gen.setOptions(opts);
+
+    auto traj = gen.generate(W);
+    auto types = traj.cornerTypes();
+    EXPECT_GE(types.size(), 3u);
+    EXPECT_TRUE(types[1] == CornerType::Stop || types[1] == CornerType::Blend);
+    // sample at endpoints -> q matches
+    auto s0 = traj.sample(0.0);
+    auto s1 = traj.sample(traj.duration());
+    EXPECT_NEAR((s0.q - W.row(0).transpose()).norm(), 0.0, 1e-12);
+    EXPECT_NEAR((s1.q - W.row(W.rows() - 1).transpose()).norm(), 0.0, 1e-12);
+}

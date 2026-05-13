@@ -1,0 +1,8 @@
+build/
+dist/
+*.egg-info/
+__pycache__/
+*.pyc
+*.so
+.pytest_cache/
+tests/python/generate_reference.py

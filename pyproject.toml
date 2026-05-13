@@ -1,0 +1,36 @@
+[build-system]
+requires = ["scikit-build-core>=0.10", "pybind11>=2.13"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "justblend"
+version = "0.1.0"
+description = "Closed-form N-dimensional trajectory generator with velocity/acceleration/jerk limiting and smooth corner blends"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+authors = [{ name = "Saif Sidhik", email = "mail@saifsidhik.page" }]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: C++",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering",
+]
+dependencies = ["numpy>=1.21"]
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+plot = ["matplotlib>=3.4"]
+
+[tool.scikit-build]
+minimum-version = "0.10"
+cmake.version = ">=3.18"
+cmake.build-type = "Release"
+wheel.packages = ["python/justblend"]
+build-dir = "build/{wheel_tag}"
+
+[tool.scikit-build.cmake.define]
+JUSTBLEND_BUILD_TESTS = "OFF"
+JUSTBLEND_BUILD_EXAMPLES = "OFF"
+JUSTBLEND_BUILD_PYTHON_BINDINGS = "ON"
