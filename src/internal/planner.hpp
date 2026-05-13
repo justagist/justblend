@@ -7,12 +7,14 @@
 #include "internal/segment.hpp"
 #include "justblend/types.hpp"
 
-namespace justblend::internal {
+namespace justblend::internal
+{
 
-std::shared_ptr<PlannedTrajectoryData> plan(const Eigen::MatrixXd& waypoints, const Limits& limits,
-                                            const GenerationOptions& options, BlendShape effective_blend_shape,
-                                            bool use_scurve);
+std::shared_ptr<PlannedTrajectoryData> plan(
+    const Eigen::MatrixXd& waypoints, const Limits& limits, const GenerationOptions& options,
+    BlendShape effective_blend_shape, bool use_scurve
+);
 
-}  // namespace justblend::internal
+} // namespace justblend::internal
 
-#endif  // JUSTBLEND_INTERNAL_PLANNER_HPP
+#endif // JUSTBLEND_INTERNAL_PLANNER_HPP

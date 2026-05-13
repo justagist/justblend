@@ -8,15 +8,19 @@
 
 #include "justblend/types.hpp"
 
-namespace justblend {
+namespace justblend
+{
 
-namespace internal {
+namespace internal
+{
 struct PlannedTrajectoryData;
 }
 
-class Trajectory {
+class Trajectory
+{
 public:
-    struct SamplesResult {
+    struct SamplesResult
+    {
         Eigen::VectorXd t;
         Eigen::MatrixXd q;
         Eigen::MatrixXd qd;
@@ -54,6 +58,6 @@ private:
     std::shared_ptr<const internal::PlannedTrajectoryData> data_;
 };
 
-}  // namespace justblend
+} // namespace justblend
 
-#endif  // JUSTBLEND_TRAJECTORY_HPP
+#endif // JUSTBLEND_TRAJECTORY_HPP

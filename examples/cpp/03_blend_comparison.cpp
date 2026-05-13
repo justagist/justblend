@@ -12,15 +12,13 @@
 
 #include <justblend/justblend.hpp>
 
-namespace {
+namespace
+{
 
-void runOne(justblend::BlendShape shape) {
+void runOne(justblend::BlendShape shape)
+{
     Eigen::MatrixXd waypoints(5, 3);
-    waypoints << 0.0, 0.0, 0.0,
-                 1.0, 0.5, -0.3,
-                 1.5, -0.2, 0.4,
-                 0.5, 0.8, 1.0,
-                 0.0, 0.0, 0.0;
+    waypoints << 0.0, 0.0, 0.0, 1.0, 0.5, -0.3, 1.5, -0.2, 0.4, 0.5, 0.8, 1.0, 0.0, 0.0, 0.0;
 
     justblend::Limits limits;
     limits.v_max = (Eigen::VectorXd(3) << 1.5, 1.2, 1.0).finished();
@@ -39,17 +37,18 @@ void runOne(justblend::BlendShape shape) {
 
     auto dense = traj.samples(0.002);
     double max_step = 0.0;
-    for (Eigen::Index i = 1; i < dense.qdd.rows(); ++i) {
+    for (Eigen::Index i = 1; i < dense.qdd.rows(); ++i)
+    {
         max_step = std::max(max_step, (dense.qdd.row(i) - dense.qdd.row(i - 1)).cwiseAbs().maxCoeff());
     }
     const char* name = shape == justblend::BlendShape::Parabolic ? "parabolic" : "hermite";
-    std::printf("%-9s  duration=%.4f s  max |Δqdd| between adjacent dt=2ms = %.4f\n",
-                name, traj.duration(), max_step);
+    std::printf("%-9s  duration=%.4f s  max |Δqdd| between adjacent dt=2ms = %.4f\n", name, traj.duration(), max_step);
 }
 
-}  // namespace
+} // namespace
 
-int main() {
+int main()
+{
     runOne(justblend::BlendShape::Parabolic);
     runOne(justblend::BlendShape::Hermite);
     return 0;

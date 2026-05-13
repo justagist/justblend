@@ -7,19 +7,18 @@
 
 using namespace justblend;
 
-namespace {
+namespace
+{
 
-Eigen::MatrixXd cornerWaypoints() {
+Eigen::MatrixXd cornerWaypoints()
+{
     Eigen::MatrixXd W(5, 3);
-    W << 0.0, 0.0, 0.0,
-         1.0, 0.5, -0.3,
-         1.5, -0.2, 0.4,
-         0.5, 0.8, 1.0,
-         0.0, 0.0, 0.0;
+    W << 0.0, 0.0, 0.0, 1.0, 0.5, -0.3, 1.5, -0.2, 0.4, 0.5, 0.8, 1.0, 0.0, 0.0, 0.0;
     return W;
 }
 
-Limits scurveLimits() {
+Limits scurveLimits()
+{
     Limits L;
     L.v_max = (Eigen::VectorXd(3) << 1.5, 1.2, 1.0).finished();
     L.a_max = (Eigen::VectorXd(3) << 3.0, 2.5, 2.0).finished();
@@ -29,11 +28,14 @@ Limits scurveLimits() {
 
 double maxAbs(const Eigen::MatrixXd& M, Eigen::Index col) { return M.col(col).cwiseAbs().maxCoeff(); }
 
-}  // namespace
+} // namespace
 
-class CornerHandlingScurveParam : public ::testing::TestWithParam<std::tuple<CornerHandling, BlendShape>> {};
+class CornerHandlingScurveParam : public ::testing::TestWithParam<std::tuple<CornerHandling, BlendShape>>
+{
+};
 
-TEST_P(CornerHandlingScurveParam, BoundsAndEndpointsHold) {
+TEST_P(CornerHandlingScurveParam, BoundsAndEndpointsHold)
+{
     auto [ch, shape] = GetParam();
     SCurveTrajectoryGenerator gen(3);
     gen.setLimits(scurveLimits());
@@ -56,32 +58,41 @@ TEST_P(CornerHandlingScurveParam, BoundsAndEndpointsHold) {
 
     // Bounds
     auto L = scurveLimits();
-    for (int i = 0; i < 3; ++i) {
+    for (int i = 0; i < 3; ++i)
+    {
         EXPECT_LE(maxAbs(r.qd, i), L.v_max(i) + 1e-6);
         EXPECT_LE(maxAbs(r.qdd, i), L.a_max(i) + 1e-6);
     }
 
     // For Hermite+SCurve, jerk should be bounded; finite-difference qdd.
-    if (shape == BlendShape::Hermite && r.q.rows() > 1) {
+    if (shape == BlendShape::Hermite && r.q.rows() > 1)
+    {
         Eigen::MatrixXd qddd(r.qdd.rows() - 1, r.qdd.cols());
-        for (Eigen::Index k = 0; k + 1 < r.qdd.rows(); ++k) {
+        for (Eigen::Index k = 0; k + 1 < r.qdd.rows(); ++k)
+        {
             qddd.row(k) = (r.qdd.row(k + 1) - r.qdd.row(k)) / (r.t(k + 1) - r.t(k));
         }
-        for (int i = 0; i < 3; ++i) {
+        for (int i = 0; i < 3; ++i)
+        {
             EXPECT_LE(qddd.col(i).cwiseAbs().maxCoeff(), L.j_max->coeff(i) + 1e-3);
         }
     }
 }
 
-INSTANTIATE_TEST_SUITE_P(All, CornerHandlingScurveParam,
-                         ::testing::Values(std::make_tuple(CornerHandling::StrictCorners, BlendShape::Parabolic),
-                                           std::make_tuple(CornerHandling::StrictCorners, BlendShape::Hermite),
-                                           std::make_tuple(CornerHandling::Hybrid, BlendShape::Parabolic),
-                                           std::make_tuple(CornerHandling::Hybrid, BlendShape::Hermite),
-                                           std::make_tuple(CornerHandling::UseBlending, BlendShape::Parabolic),
-                                           std::make_tuple(CornerHandling::UseBlending, BlendShape::Hermite)));
+INSTANTIATE_TEST_SUITE_P(
+    All, CornerHandlingScurveParam,
+    ::testing::Values(
+        std::make_tuple(CornerHandling::StrictCorners, BlendShape::Parabolic),
+        std::make_tuple(CornerHandling::StrictCorners, BlendShape::Hermite),
+        std::make_tuple(CornerHandling::Hybrid, BlendShape::Parabolic),
+        std::make_tuple(CornerHandling::Hybrid, BlendShape::Hermite),
+        std::make_tuple(CornerHandling::UseBlending, BlendShape::Parabolic),
+        std::make_tuple(CornerHandling::UseBlending, BlendShape::Hermite)
+    )
+);
 
-TEST(CornerHandling, TrapezoidalBoundsHold) {
+TEST(CornerHandling, TrapezoidalBoundsHold)
+{
     Limits L;
     L.v_max = (Eigen::VectorXd(3) << 1.5, 1.2, 1.0).finished();
     L.a_max = (Eigen::VectorXd(3) << 3.0, 2.5, 2.0).finished();
@@ -98,13 +109,15 @@ TEST(CornerHandling, TrapezoidalBoundsHold) {
     auto r = traj.samples(0.001);
     EXPECT_NEAR(r.qd.row(0).norm(), 0.0, 1e-12);
     EXPECT_NEAR(r.qd.row(r.qd.rows() - 1).norm(), 0.0, 1e-12);
-    for (int i = 0; i < 3; ++i) {
+    for (int i = 0; i < 3; ++i)
+    {
         EXPECT_LE(maxAbs(r.qd, i), L.v_max(i) + 1e-6);
         EXPECT_LE(maxAbs(r.qdd, i), L.a_max(i) + 1e-6);
     }
 }
 
-TEST(CornerHandling, UseBlendingRaisesWhenBlendRadiusUnusable) {
+TEST(CornerHandling, UseBlendingRaisesWhenBlendRadiusUnusable)
+{
     // blend_radius so small that the per-corner clip falls below 1e-9: the
     // planner rejects the blend in use_blending mode.
     SCurveTrajectoryGenerator gen(3);
@@ -118,7 +131,8 @@ TEST(CornerHandling, UseBlendingRaisesWhenBlendRadiusUnusable) {
     EXPECT_THROW(gen.generate(W), ValidationError);
 }
 
-TEST(CornerHandling, PerCornerBlendRadii) {
+TEST(CornerHandling, PerCornerBlendRadii)
+{
     // demo waypoints have 3 interior corners. Set distinct radii per corner
     // and check that the resulting blend r-values follow our choices (after
     // per-corner geometric clipping).
@@ -129,7 +143,7 @@ TEST(CornerHandling, PerCornerBlendRadii) {
     radii << 0.10, 0.20, 0.05;
 
     GenerationOptions opts;
-    opts.blend_radius = 999.0;  // would-be scalar fallback, but we override
+    opts.blend_radius = 999.0; // would-be scalar fallback, but we override
     opts.blend_radii = radii;
     opts.corner_handling = CornerHandling::Hybrid;
     gen.setOptions(opts);
@@ -137,13 +151,14 @@ TEST(CornerHandling, PerCornerBlendRadii) {
     auto W = cornerWaypoints();
     auto traj = gen.generate(W);
     const auto& planned_radii = traj.blendRadii();
-    ASSERT_EQ(planned_radii.size(), 5u);  // N entries; first/last are endpoint zeros
+    ASSERT_EQ(planned_radii.size(), 5u); // N entries; first/last are endpoint zeros
     EXPECT_NEAR(planned_radii[1], 0.10, 1e-12);
     EXPECT_NEAR(planned_radii[2], 0.20, 1e-12);
     EXPECT_NEAR(planned_radii[3], 0.05, 1e-12);
 }
 
-TEST(CornerHandling, BlendRadiiSizeOneBroadcasts) {
+TEST(CornerHandling, BlendRadiiSizeOneBroadcasts)
+{
     SCurveTrajectoryGenerator gen(3);
     gen.setLimits(scurveLimits());
 
@@ -161,12 +176,13 @@ TEST(CornerHandling, BlendRadiiSizeOneBroadcasts) {
     EXPECT_NEAR(r[3], 0.12, 1e-12);
 }
 
-TEST(CornerHandling, BlendRadiiWrongSizeThrows) {
+TEST(CornerHandling, BlendRadiiWrongSizeThrows)
+{
     SCurveTrajectoryGenerator gen(3);
     gen.setLimits(scurveLimits());
 
     GenerationOptions opts;
-    opts.blend_radii = (Eigen::VectorXd(2) << 0.1, 0.1).finished();  // wrong size (need 3 or 1)
+    opts.blend_radii = (Eigen::VectorXd(2) << 0.1, 0.1).finished(); // wrong size (need 3 or 1)
     opts.corner_handling = CornerHandling::Hybrid;
     gen.setOptions(opts);
 
@@ -174,7 +190,8 @@ TEST(CornerHandling, BlendRadiiWrongSizeThrows) {
     EXPECT_THROW(gen.generate(W), std::invalid_argument);
 }
 
-TEST(CornerHandling, BlendRadiiNonPositiveRejectedAtSetOptions) {
+TEST(CornerHandling, BlendRadiiNonPositiveRejectedAtSetOptions)
+{
     SCurveTrajectoryGenerator gen(3);
     gen.setLimits(scurveLimits());
 
@@ -183,13 +200,12 @@ TEST(CornerHandling, BlendRadiiNonPositiveRejectedAtSetOptions) {
     EXPECT_THROW(gen.setOptions(opts), std::invalid_argument);
 }
 
-TEST(CornerHandling, HybridCollapseRevertsToStop) {
+TEST(CornerHandling, HybridCollapseRevertsToStop)
+{
     // Tight V_blend cap that forward/backward pass forces to ~0; hybrid should
     // revert the blend to a stop and re-run, succeeding.
     Eigen::MatrixXd W(3, 2);
-    W << 0.0, 0.0,
-         0.05, 0.0,
-         0.05, 0.05;
+    W << 0.0, 0.0, 0.05, 0.0, 0.05, 0.05;
 
     Limits L;
     L.v_max = (Eigen::VectorXd(2) << 1.0, 1.0).finished();

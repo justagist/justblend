@@ -7,43 +7,51 @@
 #include <string>
 #include <vector>
 
-namespace justblend {
+namespace justblend
+{
 
-class ValidationError : public std::runtime_error {
+class ValidationError : public std::runtime_error
+{
 public:
     using std::runtime_error::runtime_error;
 };
 
-struct Limits {
+struct Limits
+{
     Eigen::VectorXd v_max;
     Eigen::VectorXd a_max;
     std::optional<Eigen::VectorXd> j_max;
 };
 
-enum class BlendShape {
+enum class BlendShape
+{
     Parabolic,
     Hermite,
 };
 
-enum class CornerHandling {
+enum class CornerHandling
+{
     StrictCorners,
     UseBlending,
     Hybrid,
 };
 
-enum class CornerType {
+enum class CornerType
+{
     Endpoint,
     Pass,
     Stop,
     Blend,
 };
 
-enum class SegmentType {
+enum class SegmentType
+{
     Linear,
     Blend,
 };
 
-struct GenerationOptions {
+struct GenerationOptions
+{
     // Scalar fallback used when blend_radii is unset (the common case).
     double blend_radius = 0.1;
 
@@ -56,14 +64,16 @@ struct GenerationOptions {
     std::optional<BlendShape> blend_shape;
 };
 
-struct Sample {
+struct Sample
+{
     double t = 0.0;
     Eigen::VectorXd q;
     Eigen::VectorXd qd;
     Eigen::VectorXd qdd;
 };
 
-struct SegmentInfo {
+struct SegmentInfo
+{
     SegmentType type = SegmentType::Linear;
     double duration = 0.0;
 
@@ -82,6 +92,6 @@ struct SegmentInfo {
     Eigen::VectorXd q_start;
 };
 
-}  // namespace justblend
+} // namespace justblend
 
-#endif  // JUSTBLEND_TYPES_HPP
+#endif // JUSTBLEND_TYPES_HPP

@@ -8,12 +8,10 @@
 
 #include <justblend/justblend.hpp>
 
-int main() {
+int main()
+{
     Eigen::MatrixXd waypoints(4, 2);
-    waypoints << 0.0, 0.0,
-                 1.0, 0.0,
-                 1.0, 1.0,
-                 0.0, 1.0;
+    waypoints << 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0;
 
     justblend::Limits limits;
     limits.v_max = (Eigen::VectorXd(2) << 1.0, 1.0).finished();
@@ -27,7 +25,8 @@ int main() {
     std::printf("duration: %.6f s\n", traj.duration());
     std::printf("segments: %zu\n", traj.numSegments());
 
-    for (double t = 0.0; t <= traj.duration() + 1e-9; t += 0.25) {
+    for (double t = 0.0; t <= traj.duration() + 1e-9; t += 0.25)
+    {
         auto s = traj.sample(t);
         std::printf("  t=%.3f  q=(%.4f, %.4f)  |qd|=%.4f\n", s.t, s.q(0), s.q(1), s.qd.norm());
     }

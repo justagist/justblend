@@ -7,4 +7,4 @@
 #include "justblend/trapezoidal.hpp"
 #include "justblend/types.hpp"
 
-#endif  // JUSTBLEND_JUSTBLEND_HPP
+#endif // JUSTBLEND_JUSTBLEND_HPP

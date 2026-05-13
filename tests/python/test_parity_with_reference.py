@@ -36,8 +36,7 @@ def _ids(paths):
 paths = _fixture_paths()
 if not paths:
     pytest.skip(
-        f"No parity fixtures in {FIX_DIR}. "
-        "Run: python tests/python/generate_reference.py <path/to/trajectory.py>",
+        f"No parity fixtures in {FIX_DIR}. Run: python tests/python/generate_reference.py <path/to/trajectory.py>",
         allow_module_level=True,
     )
 

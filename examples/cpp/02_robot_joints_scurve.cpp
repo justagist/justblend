@@ -9,13 +9,10 @@
 
 #include <justblend/justblend.hpp>
 
-int main() {
+int main()
+{
     Eigen::MatrixXd waypoints(5, 3);
-    waypoints << 0.0, 0.0, 0.0,
-                 1.0, 0.5, -0.3,
-                 1.5, -0.2, 0.4,
-                 0.5, 0.8, 1.0,
-                 0.0, 0.0, 0.0;
+    waypoints << 0.0, 0.0, 0.0, 1.0, 0.5, -0.3, 1.5, -0.2, 0.4, 0.5, 0.8, 1.0, 0.0, 0.0, 0.0;
 
     justblend::Limits limits;
     limits.v_max = (Eigen::VectorXd(3) << 1.5, 1.2, 1.0).finished();

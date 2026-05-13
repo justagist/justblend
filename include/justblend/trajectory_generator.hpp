@@ -8,9 +8,11 @@
 #include "justblend/trajectory.hpp"
 #include "justblend/types.hpp"
 
-namespace justblend {
+namespace justblend
+{
 
-class TrajectoryGenerator {
+class TrajectoryGenerator
+{
 public:
     explicit TrajectoryGenerator(std::size_t dim);
     virtual ~TrajectoryGenerator() = default;
@@ -42,6 +44,6 @@ protected:
     GenerationOptions options_{};
 };
 
-}  // namespace justblend
+} // namespace justblend
 
-#endif  // JUSTBLEND_TRAJECTORY_GENERATOR_HPP
+#endif // JUSTBLEND_TRAJECTORY_GENERATOR_HPP

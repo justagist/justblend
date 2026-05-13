@@ -8,17 +8,20 @@
 using namespace justblend;
 using namespace justblend::internal;
 
-namespace {
+namespace
+{
 
-Eigen::VectorXd vec3(double a, double b, double c) {
+Eigen::VectorXd vec3(double a, double b, double c)
+{
     Eigen::VectorXd v(3);
     v << a, b, c;
     return v;
 }
 
-}  // namespace
+} // namespace
 
-TEST(BlendCap, ParabolicMatchesClosedForm) {
+TEST(BlendCap, ParabolicMatchesClosedForm)
+{
     Eigen::VectorXd d_in = vec3(1.0, 0.0, 0.0);
     Eigen::VectorXd d_out = vec3(0.0, 1.0, 0.0);
     double r = 0.1;
@@ -28,11 +31,12 @@ TEST(BlendCap, ParabolicMatchesClosedForm) {
     double V = blendVCap(d_in, d_out, r, vmax, amax, std::nullopt, BlendShape::Parabolic);
 
     // V_acc = sqrt(2 r * min(amax_i / |delta_d_i|))
-    double V_acc = std::sqrt(2.0 * r * 3.0 / 1.0);  // |delta_d| = 1 for each non-zero component
+    double V_acc = std::sqrt(2.0 * r * 3.0 / 1.0); // |delta_d| = 1 for each non-zero component
     EXPECT_NEAR(V, std::min(V_acc, 2.0), 1e-12);
 }
 
-TEST(BlendCap, HermiteHasJerkCap) {
+TEST(BlendCap, HermiteHasJerkCap)
+{
     Eigen::VectorXd d_in = vec3(1.0, 0.0, 0.0);
     Eigen::VectorXd d_out = vec3(0.0, 1.0, 0.0);
     double r = 0.1;
@@ -54,7 +58,8 @@ TEST(BlendCap, HermiteHasJerkCap) {
     EXPECT_NEAR(V_with_jerk, std::min({V_acc, 2.0, V_jerk}), 1e-12);
 }
 
-TEST(BlendSample, ParabolicEndpointsMatch) {
+TEST(BlendSample, ParabolicEndpointsMatch)
+{
     BlendSegmentData seg;
     seg.shape = BlendShape::Parabolic;
     seg.V = 0.5;
@@ -73,7 +78,8 @@ TEST(BlendSample, ParabolicEndpointsMatch) {
     EXPECT_NEAR((s1.qd - seg.V * seg.d_out).norm(), 0.0, 1e-12);
 }
 
-TEST(BlendSample, HermiteZeroAccelAtBoundaries) {
+TEST(BlendSample, HermiteZeroAccelAtBoundaries)
+{
     BlendSegmentData seg;
     seg.shape = BlendShape::Hermite;
     seg.V = 0.5;

@@ -3,18 +3,22 @@
 #include <algorithm>
 #include <cmath>
 
-namespace justblend::internal {
+namespace justblend::internal
+{
 
-double blendVCap(const Eigen::VectorXd& d_in, const Eigen::VectorXd& d_out, double r,
-                 const Eigen::VectorXd& vmax, const Eigen::VectorXd& amax,
-                 const std::optional<Eigen::VectorXd>& jmax, BlendShape shape) {
+double blendVCap(
+    const Eigen::VectorXd& d_in, const Eigen::VectorXd& d_out, double r, const Eigen::VectorXd& vmax,
+    const Eigen::VectorXd& amax, const std::optional<Eigen::VectorXd>& jmax, BlendShape shape
+)
+{
     Eigen::VectorXd delta_d = d_out - d_in;
     Eigen::VectorXd abs_delta = delta_d.cwiseAbs().cwiseMax(1e-12);
     Eigen::VectorXd d_max = d_in.cwiseAbs().cwiseMax(d_out.cwiseAbs()).cwiseMax(1e-12);
 
     double V_vel = (vmax.array() / d_max.array()).minCoeff();
 
-    if (shape == BlendShape::Parabolic) {
+    if (shape == BlendShape::Parabolic)
+    {
         double min_a_ratio = (amax.array() / abs_delta.array()).minCoeff();
         double V_acc = std::sqrt(2.0 * r * min_a_ratio);
         return std::min(V_acc, V_vel);
@@ -24,7 +28,8 @@ double blendVCap(const Eigen::VectorXd& d_in, const Eigen::VectorXd& d_out, doub
     double min_a_ratio = (amax.array() / abs_delta.array()).minCoeff();
     double V_acc = std::sqrt((4.0 / 3.0) * r * min_a_ratio);
     double cap = std::min(V_acc, V_vel);
-    if (jmax.has_value()) {
+    if (jmax.has_value())
+    {
         double min_j_ratio = (jmax->array() / abs_delta.array()).minCoeff();
         double V_jerk = std::cbrt((2.0 / 3.0) * r * r * min_j_ratio);
         cap = std::min(cap, V_jerk);
@@ -32,7 +37,8 @@ double blendVCap(const Eigen::VectorXd& d_in, const Eigen::VectorXd& d_out, doub
     return cap;
 }
 
-BlendSample sampleBlend(double t_local, const BlendSegmentData& seg) {
+BlendSample sampleBlend(double t_local, const BlendSegmentData& seg)
+{
     const double V = seg.V;
     const double r = seg.r;
     const double T_b = seg.duration;
@@ -42,9 +48,11 @@ BlendSample sampleBlend(double t_local, const BlendSegmentData& seg) {
 
     BlendSample out;
 
-    if (seg.shape == BlendShape::Parabolic) {
+    if (seg.shape == BlendShape::Parabolic)
+    {
         Eigen::VectorXd a = Eigen::VectorXd::Zero(d_in.size());
-        if (r > 1e-12) {
+        if (r > 1e-12)
+        {
             a = (V * V) * (d_out - d_in) / (2.0 * r);
         }
         out.q = q_start + V * d_in * t_local + 0.5 * a * (t_local * t_local);
@@ -66,4 +74,4 @@ BlendSample sampleBlend(double t_local, const BlendSegmentData& seg) {
     return out;
 }
 
-}  // namespace justblend::internal
+} // namespace justblend::internal

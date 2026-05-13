@@ -3,9 +3,11 @@
 
 #include "justblend/trajectory_generator.hpp"
 
-namespace justblend {
+namespace justblend
+{
 
-class TrapezoidalTrajectoryGenerator : public TrajectoryGenerator {
+class TrapezoidalTrajectoryGenerator : public TrajectoryGenerator
+{
 public:
     using TrajectoryGenerator::TrajectoryGenerator;
 
@@ -15,6 +17,6 @@ protected:
     void validateLimitsDerived(const Limits& limits) const override;
 };
 
-}  // namespace justblend
+} // namespace justblend
 
-#endif  // JUSTBLEND_TRAPEZOIDAL_HPP
+#endif // JUSTBLEND_TRAPEZOIDAL_HPP

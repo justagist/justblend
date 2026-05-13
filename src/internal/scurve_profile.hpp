@@ -5,7 +5,8 @@
 
 #include "internal/segment.hpp"
 
-namespace justblend::internal {
+namespace justblend::internal
+{
 
 double rampDistance(double v0, double v1, double amax, double jmax);
 
@@ -13,7 +14,8 @@ std::vector<ScurvePhase> rampPhases(double v0, double v1, double amax, double jm
 
 std::vector<ScurvePhase> scurvePhases(double v0, double v1, double vmax, double amax, double jmax, double D);
 
-struct ScurveSample {
+struct ScurveSample
+{
     double s;
     double sd;
     double sdd;
@@ -23,6 +25,6 @@ ScurveSample sampleScurve(double t_local, double v0, const std::vector<ScurvePha
 
 double reachableScurve(double v0, double amax, double jmax, double D, double v_upper);
 
-}  // namespace justblend::internal
+} // namespace justblend::internal
 
-#endif  // JUSTBLEND_INTERNAL_SCURVE_PROFILE_HPP
+#endif // JUSTBLEND_INTERNAL_SCURVE_PROFILE_HPP

@@ -6,19 +6,23 @@
 
 #include "justblend/types.hpp"
 
-namespace justblend::internal {
+namespace justblend::internal
+{
 
-struct TrapPhase {
+struct TrapPhase
+{
     double duration;
     double sdd;
 };
 
-struct ScurvePhase {
+struct ScurvePhase
+{
     double duration;
     double jerk;
 };
 
-struct LinearSegmentData {
+struct LinearSegmentData
+{
     Eigen::VectorXd u_dir;
     Eigen::VectorXd q0;
     double v0 = 0.0;
@@ -29,7 +33,8 @@ struct LinearSegmentData {
     std::vector<ScurvePhase> scurve_phases;
 };
 
-struct BlendSegmentData {
+struct BlendSegmentData
+{
     BlendShape shape = BlendShape::Parabolic;
     double duration = 0.0;
     double V = 0.0;
@@ -40,16 +45,18 @@ struct BlendSegmentData {
     Eigen::VectorXd q_center;
 };
 
-struct Segment {
+struct Segment
+{
     SegmentType type = SegmentType::Linear;
     double duration = 0.0;
     LinearSegmentData linear;
     BlendSegmentData blend;
 };
 
-struct PlannedTrajectoryData {
+struct PlannedTrajectoryData
+{
     std::vector<Segment> segments;
-    std::vector<double> cumulative_t;  // size segments.size()+1; cumulative_t[0] = 0
+    std::vector<double> cumulative_t; // size segments.size()+1; cumulative_t[0] = 0
     Eigen::VectorXd junction_speeds;
     std::vector<double> blend_radii;
     std::vector<CornerType> corner_types;
@@ -64,6 +71,6 @@ struct PlannedTrajectoryData {
     std::vector<SegmentInfo> segment_infos;
 };
 
-}  // namespace justblend::internal
+} // namespace justblend::internal
 
-#endif  // JUSTBLEND_INTERNAL_SEGMENT_HPP
+#endif // JUSTBLEND_INTERNAL_SEGMENT_HPP

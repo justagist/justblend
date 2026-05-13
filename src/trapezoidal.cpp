@@ -1,9 +1,11 @@
 #include "justblend/trapezoidal.hpp"
 
-namespace justblend {
+namespace justblend
+{
 
-void TrapezoidalTrajectoryGenerator::validateLimitsDerived(const Limits& /*limits*/) const {
+void TrapezoidalTrajectoryGenerator::validateLimitsDerived(const Limits& /*limits*/) const
+{
     // No additional constraints beyond the base v/a positivity check.
 }
 
-}  // namespace justblend
+} // namespace justblend
