@@ -118,6 +118,71 @@ TEST(CornerHandling, UseBlendingRaisesWhenBlendRadiusUnusable) {
     EXPECT_THROW(gen.generate(W), ValidationError);
 }
 
+TEST(CornerHandling, PerCornerBlendRadii) {
+    // demo waypoints have 3 interior corners. Set distinct radii per corner
+    // and check that the resulting blend r-values follow our choices (after
+    // per-corner geometric clipping).
+    SCurveTrajectoryGenerator gen(3);
+    gen.setLimits(scurveLimits());
+
+    Eigen::VectorXd radii(3);
+    radii << 0.10, 0.20, 0.05;
+
+    GenerationOptions opts;
+    opts.blend_radius = 999.0;  // would-be scalar fallback, but we override
+    opts.blend_radii = radii;
+    opts.corner_handling = CornerHandling::Hybrid;
+    gen.setOptions(opts);
+
+    auto W = cornerWaypoints();
+    auto traj = gen.generate(W);
+    const auto& planned_radii = traj.blendRadii();
+    ASSERT_EQ(planned_radii.size(), 5u);  // N entries; first/last are endpoint zeros
+    EXPECT_NEAR(planned_radii[1], 0.10, 1e-12);
+    EXPECT_NEAR(planned_radii[2], 0.20, 1e-12);
+    EXPECT_NEAR(planned_radii[3], 0.05, 1e-12);
+}
+
+TEST(CornerHandling, BlendRadiiSizeOneBroadcasts) {
+    SCurveTrajectoryGenerator gen(3);
+    gen.setLimits(scurveLimits());
+
+    GenerationOptions opts;
+    opts.blend_radius = 0.999;
+    opts.blend_radii = (Eigen::VectorXd(1) << 0.12).finished();
+    opts.corner_handling = CornerHandling::Hybrid;
+    gen.setOptions(opts);
+
+    auto W = cornerWaypoints();
+    auto traj = gen.generate(W);
+    const auto& r = traj.blendRadii();
+    EXPECT_NEAR(r[1], 0.12, 1e-12);
+    EXPECT_NEAR(r[2], 0.12, 1e-12);
+    EXPECT_NEAR(r[3], 0.12, 1e-12);
+}
+
+TEST(CornerHandling, BlendRadiiWrongSizeThrows) {
+    SCurveTrajectoryGenerator gen(3);
+    gen.setLimits(scurveLimits());
+
+    GenerationOptions opts;
+    opts.blend_radii = (Eigen::VectorXd(2) << 0.1, 0.1).finished();  // wrong size (need 3 or 1)
+    opts.corner_handling = CornerHandling::Hybrid;
+    gen.setOptions(opts);
+
+    auto W = cornerWaypoints();
+    EXPECT_THROW(gen.generate(W), std::invalid_argument);
+}
+
+TEST(CornerHandling, BlendRadiiNonPositiveRejectedAtSetOptions) {
+    SCurveTrajectoryGenerator gen(3);
+    gen.setLimits(scurveLimits());
+
+    GenerationOptions opts;
+    opts.blend_radii = (Eigen::VectorXd(3) << 0.1, -0.1, 0.05).finished();
+    EXPECT_THROW(gen.setOptions(opts), std::invalid_argument);
+}
+
 TEST(CornerHandling, HybridCollapseRevertsToStop) {
     // Tight V_blend cap that forward/backward pass forces to ~0; hybrid should
     // revert the blend to a stop and re-run, succeeding.

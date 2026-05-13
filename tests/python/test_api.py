@@ -149,3 +149,53 @@ def test_dim_mismatch_raises(limits_3d):
     gen = jb.SCurveTrajectoryGenerator(dim=2)
     with pytest.raises(ValueError):
         gen.set_limits(limits_3d)
+
+
+def test_per_corner_blend_radii(waypoints_3d, limits_3d):
+    # 5 waypoints -> 3 interior corners; supply three distinct radii.
+    radii = np.array([0.10, 0.20, 0.05])
+    opts = jb.GenerationOptions(
+        blend_radius=999.0,
+        blend_radii=radii,
+        corner_handling=jb.CornerHandling.HYBRID,
+    )
+    gen = jb.SCurveTrajectoryGenerator(dim=3)
+    gen.set_limits(limits_3d)
+    gen.set_options(opts)
+    traj = gen.generate(waypoints_3d)
+    planned = list(traj.blend_radii())
+    assert planned[0] == 0.0  # endpoint
+    assert planned[-1] == 0.0  # endpoint
+    np.testing.assert_allclose(planned[1:-1], radii, atol=1e-12)
+
+
+def test_blend_radii_size_one_broadcasts(waypoints_3d, limits_3d):
+    opts = jb.GenerationOptions(
+        blend_radius=0.999,
+        blend_radii=np.array([0.12]),
+        corner_handling=jb.CornerHandling.HYBRID,
+    )
+    gen = jb.SCurveTrajectoryGenerator(dim=3)
+    gen.set_limits(limits_3d)
+    gen.set_options(opts)
+    traj = gen.generate(waypoints_3d)
+    np.testing.assert_allclose(list(traj.blend_radii())[1:-1], [0.12, 0.12, 0.12], atol=1e-12)
+
+
+def test_blend_radii_wrong_size_raises(waypoints_3d, limits_3d):
+    opts = jb.GenerationOptions(
+        blend_radii=np.array([0.1, 0.1]),  # need 3 or 1
+        corner_handling=jb.CornerHandling.HYBRID,
+    )
+    gen = jb.SCurveTrajectoryGenerator(dim=3)
+    gen.set_limits(limits_3d)
+    gen.set_options(opts)
+    with pytest.raises(ValueError):
+        gen.generate(waypoints_3d)
+
+
+def test_blend_radii_non_positive_rejected_in_set_options():
+    opts = jb.GenerationOptions(blend_radii=np.array([0.1, -0.05, 0.2]))
+    gen = jb.SCurveTrajectoryGenerator(dim=3)
+    with pytest.raises(ValueError):
+        gen.set_options(opts)

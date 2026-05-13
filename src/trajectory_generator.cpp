@@ -30,6 +30,14 @@ void TrajectoryGenerator::setOptions(const GenerationOptions& opts) {
     if (!(opts.blend_radius > 0.0)) {
         throw std::invalid_argument("setOptions: blend_radius must be > 0.");
     }
+    if (opts.blend_radii.has_value()) {
+        if (opts.blend_radii->size() == 0) {
+            throw std::invalid_argument("setOptions: blend_radii cannot be empty.");
+        }
+        if ((opts.blend_radii->array() <= 0.0).any()) {
+            throw std::invalid_argument("setOptions: every blend_radii entry must be > 0.");
+        }
+    }
     options_ = opts;
 }
 

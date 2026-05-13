@@ -42,11 +42,13 @@ class Limits:
 
 class GenerationOptions:
     blend_radius: float
+    blend_radii: ArrayLike | None
     corner_handling: CornerHandling
     blend_shape: BlendShape | None
     def __init__(
         self,
         blend_radius: float = ...,
+        blend_radii: ArrayLike | None = ...,
         corner_handling: CornerHandling = ...,
         blend_shape: BlendShape | None = ...,
     ) -> None: ...

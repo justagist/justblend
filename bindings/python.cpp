@@ -55,17 +55,20 @@ PYBIND11_MODULE(_core, m) {
         });
 
     py::class_<GenerationOptions>(m, "GenerationOptions")
-        .def(py::init([](double blend_radius, CornerHandling corner_handling,
-                         std::optional<BlendShape> blend_shape) {
+        .def(py::init([](double blend_radius, std::optional<Eigen::VectorXd> blend_radii,
+                         CornerHandling corner_handling, std::optional<BlendShape> blend_shape) {
                  GenerationOptions o;
                  o.blend_radius = blend_radius;
+                 o.blend_radii = std::move(blend_radii);
                  o.corner_handling = corner_handling;
                  o.blend_shape = blend_shape;
                  return o;
              }),
-             py::arg("blend_radius") = 0.1, py::arg("corner_handling") = CornerHandling::StrictCorners,
+             py::arg("blend_radius") = 0.1, py::arg("blend_radii") = std::nullopt,
+             py::arg("corner_handling") = CornerHandling::StrictCorners,
              py::arg("blend_shape") = std::nullopt)
         .def_readwrite("blend_radius", &GenerationOptions::blend_radius)
+        .def_readwrite("blend_radii", &GenerationOptions::blend_radii)
         .def_readwrite("corner_handling", &GenerationOptions::corner_handling)
         .def_readwrite("blend_shape", &GenerationOptions::blend_shape);
 

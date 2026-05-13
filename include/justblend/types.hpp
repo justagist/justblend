@@ -44,7 +44,14 @@ enum class SegmentType {
 };
 
 struct GenerationOptions {
+    // Scalar fallback used when blend_radii is unset (the common case).
     double blend_radius = 0.1;
+
+    // Optional per-corner radii. If size == 1 it broadcasts (equivalent to
+    // setting blend_radius). Otherwise must have size N - 2 (one entry per
+    // interior corner, in waypoint order). Entries must be > 0.
+    std::optional<Eigen::VectorXd> blend_radii;
+
     CornerHandling corner_handling = CornerHandling::StrictCorners;
     std::optional<BlendShape> blend_shape;
 };

@@ -69,6 +69,24 @@ std::shared_ptr<PlannedTrajectoryData> plan(const Eigen::MatrixXd& waypoints, co
         throw std::invalid_argument("Unknown corner_handling value.");
     }
 
+    // Per-corner radii size check (1 broadcasts, else must match N - 2).
+    const Eigen::Index n_interior = std::max<Eigen::Index>(N - 2, 0);
+    if (options.blend_radii.has_value()) {
+        const Eigen::Index sz = options.blend_radii->size();
+        if (sz != 1 && sz != n_interior) {
+            std::ostringstream oss;
+            oss << "blend_radii must have size 1 or N-2 = " << n_interior << "; got size " << sz << ".";
+            throw std::invalid_argument(oss.str());
+        }
+    }
+    auto radius_for_corner = [&](Eigen::Index k) -> double {
+        if (options.blend_radii.has_value()) {
+            const auto& v = *options.blend_radii;
+            return v.size() == 1 ? v(0) : v(k - 1);
+        }
+        return options.blend_radius;
+    };
+
     // deltas, L_full, u_dir
     Eigen::MatrixXd deltas = waypoints.bottomRows(N - 1) - waypoints.topRows(N - 1);
     Eigen::VectorXd L_full(N - 1);
@@ -116,7 +134,8 @@ std::shared_ptr<PlannedTrajectoryData> plan(const Eigen::MatrixXd& waypoints, co
             continue;
         }
         double max_r_geom = std::min(L_full(k - 1), L_full(k)) / 2.0;
-        double r = std::min(options.blend_radius, max_r_geom);
+        double r_requested = radius_for_corner(k);
+        double r = std::min(r_requested, max_r_geom);
         if (r > 1e-9) {
             double V_max = blendVCap(u_prev, u_curr, r, limits.v_max, limits.a_max,
                                      use_scurve ? limits.j_max : std::optional<Eigen::VectorXd>{},
@@ -137,7 +156,7 @@ std::shared_ptr<PlannedTrajectoryData> plan(const Eigen::MatrixXd& waypoints, co
             if (options.corner_handling == CornerHandling::UseBlending) {
                 std::ostringstream oss;
                 oss << "Blend at waypoint " << k << ": adjacent segments shorter than 2 * blend_radius = "
-                    << (2.0 * options.blend_radius) << ".";
+                    << (2.0 * r_requested) << ".";
                 throw ValidationError(oss.str());
             }
             corner_type[k] = CornerType::Stop;
