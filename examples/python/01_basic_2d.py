@@ -38,7 +38,7 @@ def main() -> None:
         s = traj.sample(float(t))
         print(f"  t={s.t:.3f}  q=({s.q[0]:.4f}, {s.q[1]:.4f})  |qd|={np.linalg.norm(s.qd):.4f}")
 
-    plot_trajectory(traj, v_max, a_max, title="basic 2D (trapezoidal)")
+    plot_trajectory(traj, v_max, a_max, title="basic 2D (trapezoidal)", waypoints=waypoints)
     plt.show()
 
 

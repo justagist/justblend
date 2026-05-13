@@ -50,7 +50,7 @@ def main() -> None:
         print(f"  max |qd|       : {np.round(np.max(np.abs(dense.qd), axis=0), 3)}  (v_max {v_max})")
         print(f"  max |qdd|      : {np.round(np.max(np.abs(dense.qdd), axis=0), 3)}  (a_max {a_max})")
 
-        plot_trajectory(traj, v_max, a_max, j_max, title=f"corner_handling={name}")
+        plot_trajectory(traj, v_max, a_max, j_max, title=f"corner_handling={name}", waypoints=waypoints)
 
     plt.show()
 

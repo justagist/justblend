@@ -48,7 +48,8 @@ def run_one(shape: jb.BlendShape, name: str):
     qdd_steps = np.max(np.abs(np.diff(dense.qdd, axis=0)))
     print(f"{name:<9}  duration={traj.duration():.4f} s  max |qdd step| over 2ms = {qdd_steps:.4f}")
 
-    plot_trajectory(traj, v_max, a_max, j_max, dt=0.002, title=f"blend_shape={name}, scurve+hybrid")
+    plot_trajectory(traj, v_max, a_max, j_max, dt=0.002, title=f"blend_shape={name}, scurve+hybrid",
+                    waypoints=waypoints)
 
 
 def main() -> None:
