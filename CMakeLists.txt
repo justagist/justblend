@@ -78,5 +78,38 @@ install(TARGETS justblend
     EXPORT justblendTargets
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
+    INCLUDES DESTINATION include
 )
 install(DIRECTORY include/justblend DESTINATION include)
+
+# Emit justblendConfig.cmake and justblendTargets.cmake so downstream
+# packages can `find_package(justblend REQUIRED)`.
+include(CMakePackageConfigHelpers)
+install(EXPORT justblendTargets
+    FILE justblendTargets.cmake
+    NAMESPACE justblend::
+    DESTINATION lib/cmake/justblend
+)
+configure_package_config_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/justblendConfig.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/justblendConfig.cmake"
+    INSTALL_DESTINATION lib/cmake/justblend
+)
+write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/justblendConfigVersion.cmake"
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/justblendConfig.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/justblendConfigVersion.cmake"
+    DESTINATION lib/cmake/justblend
+)
+
+# Also emit justblendTargets.cmake into the build tree so downstream
+# packages can pick up justblend without a separate install step. Consumers
+# set justblend_DIR=<this-build> or add it to CMAKE_PREFIX_PATH.
+export(EXPORT justblendTargets
+    FILE "${CMAKE_CURRENT_BINARY_DIR}/justblendTargets.cmake"
+    NAMESPACE justblend::
+)
