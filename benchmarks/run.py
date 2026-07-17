@@ -23,8 +23,9 @@ DATA = os.path.join(HERE, "..", "tests", "data", "waypoints.json")
 PLOTS_DIR = os.path.join(HERE, "plots")
 
 # Methods overlaid on the path plots: only those whose geometry differs from
-# the waypoint polyline (strict/chained methods follow it exactly).
-PATH_PLOT_METHODS = ("jb-scurve-hybrid", "jb-trap-hybrid", "ruckig-chained", "toppra-spline")
+# the waypoint polyline (strict/chained methods follow it exactly). Capped at
+# four series to match the validated all-pairs palette slots.
+PATH_PLOT_METHODS = ("jb-scurve-hybrid", "jb-trap-hybrid", "ruckig-waypoints", "toppra-spline")
 
 # Categorical palette (light mode), fixed slot order; single-hue bars use slot 1.
 SERIES_COLOURS = ("#2a78d6", "#008300", "#e87ba4", "#eda100")
@@ -125,6 +126,7 @@ def run_scenario(sc: Scenario) -> list[BenchResult]:
             )
     if sc.j_max is not None:
         add(lambda: adapters.run_ruckig_chained("ruckig-chained", sc.W, sc.v_max, sc.a_max, sc.j_max, sc.dt))
+        add(lambda: adapters.run_ruckig_waypoints("ruckig-waypoints", sc.W, sc.v_max, sc.a_max, sc.j_max, sc.dt))
     add(lambda: adapters.run_toppra_chained("toppra-chained", sc.W, sc.v_max, sc.a_max, sc.dt))
     add(lambda: adapters.run_toppra_spline("toppra-spline", sc.W, sc.v_max, sc.a_max, sc.dt))
     return results
@@ -197,11 +199,14 @@ python benchmarks/run.py [--dt 0.001]
 | jb-scurve-strict | jerk-limited S-curve | full stop at every waypoint | exact polyline |
 | jb-scurve-hybrid | jerk-limited S-curve | Hermite blends where feasible | polyline with rounded corners |
 | ruckig-chained | jerk-limited | full stop at every waypoint | unconstrained between waypoints (per-axis profiles) |
+| ruckig-waypoints | jerk-limited | passes through waypoints at speed | unconstrained (per-axis profiles through waypoints) |
 | toppra-chained | vel/acc time-optimal | full stop at every waypoint | exact polyline |
 | toppra-spline | vel/acc time-optimal | passes through waypoints at speed | cubic spline through waypoints |
 
-Intermediate-waypoint support in ruckig is a Pro feature, so the community
-edition is chained rest-to-rest per segment. toppra has no jerk constraint.
+ruckig-waypoints uses `intermediate_positions`; the community edition solves
+it via ruckig's **cloud API** (Ruckig Pro solves it locally), so its
+generation time includes a network round trip and the scenario data leaves
+the machine. toppra has no jerk constraint.
 
 ## Results
 """
@@ -229,6 +234,9 @@ NOTES = """\
 - ruckig-chained moves each axis independently between waypoints, so its
   path leaves the polyline (see polyline dev) even though it stops at every
   waypoint.
+- ruckig-waypoints passes through every waypoint without stopping (wp miss
+  ~0) but its path between waypoints is unconstrained; its generation time
+  is dominated by the cloud-API round trip in the community edition.
 - jb-*-hybrid rounds corners; the deviation is bounded and reported by
   `Trajectory::maxCornerDeviation()`.
 - toppra-spline follows a smooth spline through all waypoints without
@@ -256,7 +264,7 @@ def render(dt: float) -> str:
             miss = waypoint_miss(r.q, sc.W)
             jerk_s = "-" if np.isnan(jerk) else f"{jerk:.2f}"
             lines.append(
-                f"| {r.name} | {r.duration:.3f} | {r.compute_ms:.2f} | {vel:.3f} | {acc:.3f} "
+                f"| {r.name} | {r.duration:.3f} | {r.compute_ms:.3g} | {vel:.3f} | {acc:.3f} "
                 f"| {jerk_s} | {dev:.4f} | {miss:.4f} |\n"
             )
         try:

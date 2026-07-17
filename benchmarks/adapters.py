@@ -44,6 +44,25 @@ def _time_ms(fn, repeats: int = 3):
     return out, best
 
 
+def _sample_ruckig_trajectories(trajs, dof: int, dt: float):
+    """Sample a list of chained ruckig trajectories on a uniform grid."""
+    durations = np.array([tr.duration for tr in trajs])
+    starts = np.concatenate([[0.0], np.cumsum(durations)])
+    total = float(starts[-1])
+
+    ts = np.arange(0.0, total, dt)
+    if ts[-1] < total:
+        ts = np.append(ts, total)
+    q = np.empty((len(ts), dof))
+    qd = np.empty_like(q)
+    qdd = np.empty_like(q)
+    idx = np.clip(np.searchsorted(starts, ts, side="right") - 1, 0, len(trajs) - 1)
+    for i, (t, j) in enumerate(zip(ts, idx)):
+        pos, vel, acc = trajs[j].at_time(min(t - starts[j], trajs[j].duration))
+        q[i], qd[i], qdd[i] = pos, vel, acc
+    return total, ts, q, qd, qdd
+
+
 def run_justblend(name, W, v_max, a_max, j_max, blend_radius, corner_handling, dt) -> BenchResult:
     scurve = j_max is not None
     gen = (jb.SCurveTrajectoryGenerator if scurve else jb.TrapezoidalTrajectoryGenerator)(dim=W.shape[1])
@@ -85,20 +104,42 @@ def run_ruckig_chained(name, W, v_max, a_max, j_max, dt) -> BenchResult:
         return trajs
 
     trajs, ms = _time_ms(build)
-    durations = np.array([tr.duration for tr in trajs])
-    starts = np.concatenate([[0.0], np.cumsum(durations)])
-    total = float(starts[-1])
+    total, ts, q, qd, qdd = _sample_ruckig_trajectories(trajs, dof, dt)
+    return BenchResult(name, total, ms, ts, q, qd, qdd)
 
-    ts = np.arange(0.0, total, dt)
-    if ts[-1] < total:
-        ts = np.append(ts, total)
-    q = np.empty((len(ts), dof))
-    qd = np.empty_like(q)
-    qdd = np.empty_like(q)
-    idx = np.clip(np.searchsorted(starts, ts, side="right") - 1, 0, len(trajs) - 1)
-    for i, (t, j) in enumerate(zip(ts, idx)):
-        pos, vel, acc = trajs[j].at_time(min(t - starts[j], trajs[j].duration))
-        q[i], qd[i], qdd[i] = pos, vel, acc
+
+def run_ruckig_waypoints(name, W, v_max, a_max, j_max, dt) -> BenchResult:
+    """Ruckig intermediate-waypoint mode: passes waypoints without stopping.
+
+    Uses InputParameter.intermediate_positions. The community edition solves
+    this by calling ruckig's cloud API (Ruckig Pro solves it locally), so
+    generation time includes a network round trip and the scenario data
+    leaves the machine.
+    """
+    from ruckig import InputParameter, Result, Ruckig
+    from ruckig import Trajectory as RuckigTrajectory
+
+    dof = W.shape[1]
+    n_intermediate = W.shape[0] - 2
+
+    def build():
+        otg = Ruckig(dof, 0.01, n_intermediate)
+        inp = InputParameter(dof)
+        inp.current_position = list(W[0])
+        inp.intermediate_positions = [list(w) for w in W[1:-1]]
+        inp.target_position = list(W[-1])
+        inp.max_velocity = list(v_max)
+        inp.max_acceleration = list(a_max)
+        inp.max_jerk = list(j_max)
+        traj = RuckigTrajectory(dof, n_intermediate)
+        res = otg.calculate(inp, traj)
+        if res not in (Result.Working, Result.Finished):
+            raise RuntimeError(f"ruckig waypoint calculation failed: {res}")
+        return traj
+
+    # Single run: the community edition round-trips to the cloud per call.
+    traj, ms = _time_ms(build, repeats=1)
+    total, ts, q, qd, qdd = _sample_ruckig_trajectories([traj], dof, dt)
     return BenchResult(name, total, ms, ts, q, qd, qdd)
 
 
