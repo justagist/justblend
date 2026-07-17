@@ -146,6 +146,60 @@ double Trajectory::maxCornerDeviation() const
     const auto& dev = data_->corner_deviations;
     return dev.empty() ? 0.0 : *std::max_element(dev.begin(), dev.end());
 }
+
+Trajectory Trajectory::stretchedTo(double target_duration) const
+{
+    if (!data_)
+        throw std::logic_error("Trajectory is empty.");
+    const double T = data_->total_duration;
+    if (!(target_duration > 0.0) || target_duration + 1e-12 < T)
+    {
+        throw ValidationError("stretchedTo: target duration must be >= the current duration.");
+    }
+    const double s = target_duration / T;
+
+    // Uniform time dilation t -> s*t: positions unchanged, velocities scale
+    // by 1/s, accelerations by 1/s^2, jerks by 1/s^3. Limits stay satisfied.
+    auto d = std::make_shared<internal::PlannedTrajectoryData>(*data_);
+    for (auto& seg : d->segments)
+    {
+        seg.duration *= s;
+        if (seg.type == SegmentType::Linear)
+        {
+            auto& lin = seg.linear;
+            lin.duration *= s;
+            lin.v0 /= s;
+            for (auto& p : lin.trap_phases)
+            {
+                p.duration *= s;
+                p.sdd /= s * s;
+            }
+            for (auto& p : lin.scurve_phases)
+            {
+                p.duration *= s;
+                p.jerk /= s * s * s;
+            }
+        }
+        else
+        {
+            seg.blend.duration *= s;
+            seg.blend.V /= s;
+        }
+    }
+    for (auto& info : d->segment_infos)
+    {
+        info.duration *= s;
+        info.v0 /= s;
+        info.V /= s;
+    }
+    for (auto& t : d->cumulative_t)
+        t *= s;
+    for (auto& t : d->waypoint_times)
+        t *= s;
+    d->junction_speeds /= s;
+    d->total_duration = target_duration;
+    return Trajectory(std::move(d));
+}
 BlendShape Trajectory::blendShape() const noexcept { return data_ ? data_->blend_shape : BlendShape::Parabolic; }
 CornerHandling Trajectory::cornerHandling() const noexcept
 {

@@ -125,6 +125,11 @@ The `Trajectory` exposes timing and corner-cut metadata:
   (`(r/4)·|d_out - d_in|` for parabolic, `(3r/16)·|d_out - d_in|` for
   Hermite blends; zero for non-blend corners). Useful to bound how far the
   blended trajectory strays from the original polyline.
+- `stretched_to(duration)` -- uniformly time-dilated copy with exactly the
+  requested total duration (same path; velocities scale by `T/duration`,
+  accelerations quadratically, jerks cubically, so all limits remain
+  satisfied). Durations shorter than the current one raise a
+  `ValidationError`.
 
 ## Install -- C++
 

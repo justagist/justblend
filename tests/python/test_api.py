@@ -242,3 +242,18 @@ def test_scaling_factors(waypoints_3d, limits_3d):
         assert np.max(np.abs(r.qdd[:, i])) <= 0.5 * limits_3d.a_max[i] + 1e-9
     with pytest.raises(jb.ValidationError):
         jb.SCurveTrajectoryGenerator(dim=3).set_options(jb.GenerationOptions(velocity_scaling_factor=1.5))
+
+
+def test_stretched_to(waypoints_3d, limits_3d):
+    traj = _make_scurve(waypoints_3d, limits_3d, blend_radius=0.15, corner_handling=jb.CornerHandling.HYBRID)
+    target = 2.0 * traj.duration()
+    slow = traj.stretched_to(target)
+    assert slow.duration() == target
+    s = target / traj.duration()
+    for f in (0.0, 0.25, 0.6, 1.0):
+        t = f * traj.duration()
+        a, b = traj.sample(t), slow.sample(s * t)
+        np.testing.assert_allclose(b.q, a.q, atol=1e-9)
+        np.testing.assert_allclose(b.qd, a.qd / s, atol=1e-9)
+    with pytest.raises(jb.ValidationError):
+        traj.stretched_to(0.5 * traj.duration())

@@ -60,6 +60,12 @@ public:
 
     // Largest entry of cornerDeviations() (0.0 when there are no blends).
     double maxCornerDeviation() const;
+
+    // Return a copy of this trajectory uniformly slowed down to the given
+    // total duration (same path, velocities scaled by T/target and so on).
+    // Throws ValidationError if target_duration is below the current
+    // duration: speeding up could violate the limits.
+    Trajectory stretchedTo(double target_duration) const;
     BlendShape blendShape() const noexcept;
     CornerHandling cornerHandling() const noexcept;
 

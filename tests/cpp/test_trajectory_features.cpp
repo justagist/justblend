@@ -252,6 +252,67 @@ TEST(Scaling, ReducesPeakVelocityAndAcceleration)
     EXPECT_GT(scaled.duration(), full.duration());
 }
 
+TEST(Stretch, MatchesTargetDurationAndPreservesPath)
+{
+    Eigen::MatrixXd W(4, 2);
+    W << 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 2.0, 1.0;
+
+    SCurveTrajectoryGenerator gen(2);
+    gen.setLimits(limits2d(1.0, 2.0, 10.0));
+    GenerationOptions opts;
+    opts.blend_radius = 0.1;
+    opts.corner_handling = CornerHandling::Hybrid;
+    gen.setOptions(opts);
+
+    auto traj = gen.generate(W);
+    const double T = traj.duration();
+    const double target = 2.5 * T;
+    auto slow = traj.stretchedTo(target);
+
+    EXPECT_DOUBLE_EQ(slow.duration(), target);
+
+    // Same path, derivatives scaled: q_slow(s*t) == q(t), qd/s, qdd/s^2.
+    const double s = target / T;
+    for (double t : {0.0, 0.1 * T, 0.37 * T, 0.5 * T, 0.83 * T, T})
+    {
+        auto a = traj.sample(t);
+        auto b = slow.sample(s * t);
+        EXPECT_NEAR((a.q - b.q).norm(), 0.0, 1e-9) << "t=" << t;
+        EXPECT_NEAR((a.qd / s - b.qd).norm(), 0.0, 1e-9) << "t=" << t;
+        EXPECT_NEAR((a.qdd / (s * s) - b.qdd).norm(), 0.0, 1e-9) << "t=" << t;
+    }
+
+    // Metadata scales consistently.
+    const auto& wt = traj.waypointTimes();
+    const auto& wt_slow = slow.waypointTimes();
+    for (std::size_t k = 0; k < wt.size(); ++k)
+    {
+        EXPECT_NEAR(wt_slow[k], s * wt[k], 1e-9);
+    }
+    EXPECT_NEAR(slow.junctionSpeeds().maxCoeff(), traj.junctionSpeeds().maxCoeff() / s, 1e-12);
+    EXPECT_DOUBLE_EQ(slow.maxCornerDeviation(), traj.maxCornerDeviation());
+}
+
+TEST(Stretch, PreservesBoundarySpeedsScaled)
+{
+    SCurveTrajectoryGenerator gen(2);
+    gen.setLimits(limits2d(1.0, 2.0, 10.0));
+    auto traj = gen.generate(straightLine(2.0), 0.4, 0.0);
+    auto slow = traj.stretchedTo(2.0 * traj.duration());
+    EXPECT_NEAR(slow.sample(0.0).qd(0), 0.2, 1e-9);
+}
+
+TEST(Stretch, ShorterTargetThrows)
+{
+    SCurveTrajectoryGenerator gen(2);
+    gen.setLimits(limits2d(1.0, 2.0, 10.0));
+    auto traj = gen.generate(straightLine(2.0));
+    EXPECT_THROW(traj.stretchedTo(0.5 * traj.duration()), ValidationError);
+    // Equal duration is a no-op copy.
+    auto same = traj.stretchedTo(traj.duration());
+    EXPECT_DOUBLE_EQ(same.duration(), traj.duration());
+}
+
 TEST(Scaling, InvalidFactorsRejectedAtSetOptions)
 {
     SCurveTrajectoryGenerator gen(2);
