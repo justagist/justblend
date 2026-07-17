@@ -42,7 +42,6 @@ struct BlendSegmentData
     Eigen::VectorXd d_in;
     Eigen::VectorXd d_out;
     Eigen::VectorXd q_start;
-    Eigen::VectorXd q_center;
 };
 
 struct Segment

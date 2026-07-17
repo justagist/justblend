@@ -131,5 +131,32 @@ TEST(Generator, ThrowsOnDimMismatch)
     L.v_max = (Eigen::VectorXd(3) << 1.0, 1.0, 1.0).finished();
     L.a_max = (Eigen::VectorXd(3) << 1.0, 1.0, 1.0).finished();
     L.j_max = (Eigen::VectorXd(3) << 10.0, 10.0, 10.0).finished();
-    EXPECT_THROW(gen.setLimits(L), std::invalid_argument);
+    EXPECT_THROW(gen.setLimits(L), ValidationError);
+}
+
+TEST(Sampling, DtNearMultipleOfDurationHasNoDuplicateFinalSample)
+{
+    auto traj = makeDemoScurve();
+    const double T = traj.duration();
+    // dt chosen so T is a hair past 1000 steps: the final-time sample would
+    // nearly duplicate the last step without the tolerance guard.
+    const double dt = T / 1000.0 * (1.0 - 1e-13);
+    auto r = traj.samples(dt);
+    for (Eigen::Index i = 1; i < r.t.size(); ++i)
+    {
+        EXPECT_GT(r.t(i) - r.t(i - 1), 1e-9 * dt) << "near-duplicate time at row " << i;
+    }
+    EXPECT_NEAR(r.t(r.t.size() - 1), T, 1e-9 * dt);
+}
+
+TEST(Sampling, BoundaryTimesSnapAnywhereInBatch)
+{
+    auto traj = makeDemoScurve();
+    Eigen::VectorXd times(4);
+    times << 0.5, 0.0, traj.duration(), 0.2;
+    auto r = traj.samples(times);
+    EXPECT_NEAR(r.qd.row(1).norm(), 0.0, 1e-12);
+    EXPECT_NEAR(r.qdd.row(1).norm(), 0.0, 1e-12);
+    EXPECT_NEAR(r.qd.row(2).norm(), 0.0, 1e-12);
+    EXPECT_NEAR(r.qdd.row(2).norm(), 0.0, 1e-12);
 }

@@ -152,14 +152,16 @@ Trajectory::SamplesResult Trajectory::samples(double dt) const
     if (!data_)
         throw std::logic_error("Trajectory is empty.");
     if (!(dt > 0.0))
-        throw std::invalid_argument("samples(dt): dt must be > 0.");
+        throw ValidationError("samples(dt): dt must be > 0.");
 
     const double T = data_->total_duration;
     const auto n_steps = static_cast<std::size_t>(std::floor(T / dt));
     const double last_step_t = static_cast<double>(n_steps) * dt;
 
     Eigen::VectorXd times;
-    if (last_step_t < T)
+    // Append the final time only when it is meaningfully past the last step,
+    // so a duration within rounding of a dt multiple gets no duplicate sample.
+    if (T - last_step_t > 1e-9 * dt)
     {
         times.resize(static_cast<Eigen::Index>(n_steps + 2));
         for (std::size_t i = 0; i <= n_steps; ++i)
@@ -229,8 +231,8 @@ Trajectory::SamplesResult Trajectory::samples(const Eigen::Ref<const Eigen::Vect
         double t_local = std::min(t - t_accum, seg.duration);
         sampleAtSegment(seg, t_local, q, qd, qdd);
 
-        const bool is_start = (i == 0 && t == 0.0);
-        const bool is_end = (i == M - 1 && t == d.total_duration);
+        const bool is_start = (t == 0.0);
+        const bool is_end = (t == d.total_duration);
         applyEndpointSnap(d, q, qd, qdd, is_start, is_end);
 
         r.q.row(i) = q.transpose();

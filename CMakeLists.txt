@@ -57,12 +57,22 @@ if(JUSTBLEND_BUILD_PYTHON_BINDINGS)
     find_package(pybind11 CONFIG REQUIRED)
     pybind11_add_module(_core MODULE bindings/python.cpp)
     target_link_libraries(_core PRIVATE justblend)
+    # Drop the module into the in-tree package so tests and examples can
+    # import justblend straight from a source checkout without installing.
     set_target_properties(_core PROPERTIES
         LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/python/justblend
     )
-    install(TARGETS _core DESTINATION justblend)
-    install(FILES python/justblend/__init__.py python/justblend/_typing.pyi
+    if(SKBUILD)
+        # Wheel builds (scikit-build-core) assemble the Python package from
+        # these rules; a plain `cmake --install` must not dump Python files
+        # into a C++ prefix, hence the guard.
+        install(TARGETS _core DESTINATION justblend)
+        install(FILES
+            python/justblend/__init__.py
+            python/justblend/_core.pyi
+            python/justblend/py.typed
             DESTINATION justblend)
+    endif()
 endif()
 
 if(JUSTBLEND_BUILD_TESTS)
@@ -74,42 +84,46 @@ if(JUSTBLEND_BUILD_EXAMPLES)
     add_subdirectory(examples/cpp)
 endif()
 
-install(TARGETS justblend
-    EXPORT justblendTargets
-    LIBRARY DESTINATION lib
-    ARCHIVE DESTINATION lib
-    INCLUDES DESTINATION include
-)
-install(DIRECTORY include/justblend DESTINATION include)
+# C++ install rules stay out of wheel builds: a wheel must not ship headers
+# and static libs into the Python platlib root.
+if(NOT SKBUILD)
+    install(TARGETS justblend
+        EXPORT justblendTargets
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib
+        INCLUDES DESTINATION include
+    )
+    install(DIRECTORY include/justblend DESTINATION include)
 
-# Emit justblendConfig.cmake and justblendTargets.cmake so downstream
-# packages can `find_package(justblend REQUIRED)`.
-include(CMakePackageConfigHelpers)
-install(EXPORT justblendTargets
-    FILE justblendTargets.cmake
-    NAMESPACE justblend::
-    DESTINATION lib/cmake/justblend
-)
-configure_package_config_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/justblendConfig.cmake.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/justblendConfig.cmake"
-    INSTALL_DESTINATION lib/cmake/justblend
-)
-write_basic_package_version_file(
-    "${CMAKE_CURRENT_BINARY_DIR}/justblendConfigVersion.cmake"
-    VERSION ${PROJECT_VERSION}
-    COMPATIBILITY SameMajorVersion
-)
-install(FILES
-    "${CMAKE_CURRENT_BINARY_DIR}/justblendConfig.cmake"
-    "${CMAKE_CURRENT_BINARY_DIR}/justblendConfigVersion.cmake"
-    DESTINATION lib/cmake/justblend
-)
+    # Emit justblendConfig.cmake and justblendTargets.cmake so downstream
+    # packages can `find_package(justblend REQUIRED)`.
+    include(CMakePackageConfigHelpers)
+    install(EXPORT justblendTargets
+        FILE justblendTargets.cmake
+        NAMESPACE justblend::
+        DESTINATION lib/cmake/justblend
+    )
+    configure_package_config_file(
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/justblendConfig.cmake.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/justblendConfig.cmake"
+        INSTALL_DESTINATION lib/cmake/justblend
+    )
+    write_basic_package_version_file(
+        "${CMAKE_CURRENT_BINARY_DIR}/justblendConfigVersion.cmake"
+        VERSION ${PROJECT_VERSION}
+        COMPATIBILITY SameMajorVersion
+    )
+    install(FILES
+        "${CMAKE_CURRENT_BINARY_DIR}/justblendConfig.cmake"
+        "${CMAKE_CURRENT_BINARY_DIR}/justblendConfigVersion.cmake"
+        DESTINATION lib/cmake/justblend
+    )
 
-# Also emit justblendTargets.cmake into the build tree so downstream
-# packages can pick up justblend without a separate install step. Consumers
-# set justblend_DIR=<this-build> or add it to CMAKE_PREFIX_PATH.
-export(EXPORT justblendTargets
-    FILE "${CMAKE_CURRENT_BINARY_DIR}/justblendTargets.cmake"
-    NAMESPACE justblend::
-)
+    # Also emit justblendTargets.cmake into the build tree so downstream
+    # packages can pick up justblend without a separate install step. Consumers
+    # set justblend_DIR=<this-build> or add it to CMAKE_PREFIX_PATH.
+    export(EXPORT justblendTargets
+        FILE "${CMAKE_CURRENT_BINARY_DIR}/justblendTargets.cmake"
+        NAMESPACE justblend::
+    )
+endif()

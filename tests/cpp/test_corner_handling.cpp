@@ -187,7 +187,7 @@ TEST(CornerHandling, BlendRadiiWrongSizeThrows)
     gen.setOptions(opts);
 
     auto W = cornerWaypoints();
-    EXPECT_THROW(gen.generate(W), std::invalid_argument);
+    EXPECT_THROW(gen.generate(W), ValidationError);
 }
 
 TEST(CornerHandling, BlendRadiiNonPositiveRejectedAtSetOptions)
@@ -197,7 +197,57 @@ TEST(CornerHandling, BlendRadiiNonPositiveRejectedAtSetOptions)
 
     GenerationOptions opts;
     opts.blend_radii = (Eigen::VectorXd(3) << 0.1, -0.1, 0.05).finished();
-    EXPECT_THROW(gen.setOptions(opts), std::invalid_argument);
+    EXPECT_THROW(gen.setOptions(opts), ValidationError);
+}
+
+TEST(CornerHandling, ReversalCornerStopsInHybrid)
+{
+    // Straight out and back: the interior corner is a full reversal, which
+    // cannot be blended through; hybrid must fall back to a stop at the
+    // waypoint itself.
+    Eigen::MatrixXd W(3, 2);
+    W << 0.0, 0.0, 1.0, 0.0, 0.0, 0.0;
+
+    Limits L;
+    L.v_max = (Eigen::VectorXd(2) << 1.0, 1.0).finished();
+    L.a_max = (Eigen::VectorXd(2) << 2.0, 2.0).finished();
+    L.j_max = (Eigen::VectorXd(2) << 10.0, 10.0).finished();
+
+    SCurveTrajectoryGenerator gen(2);
+    gen.setLimits(L);
+    GenerationOptions opts;
+    opts.blend_radius = 0.1;
+    opts.corner_handling = CornerHandling::Hybrid;
+    gen.setOptions(opts);
+
+    auto traj = gen.generate(W);
+    EXPECT_EQ(traj.cornerTypes()[1], CornerType::Stop);
+
+    // Both legs are identical, so the stop is at half the duration and the
+    // trajectory passes exactly through the reversal waypoint at zero speed.
+    auto s = traj.sample(traj.duration() / 2.0);
+    EXPECT_NEAR((s.q - W.row(1).transpose()).norm(), 0.0, 1e-9);
+    EXPECT_NEAR(s.qd.norm(), 0.0, 1e-9);
+}
+
+TEST(CornerHandling, ReversalCornerThrowsInUseBlending)
+{
+    Eigen::MatrixXd W(3, 2);
+    W << 0.0, 0.0, 1.0, 0.0, 0.0, 0.0;
+
+    Limits L;
+    L.v_max = (Eigen::VectorXd(2) << 1.0, 1.0).finished();
+    L.a_max = (Eigen::VectorXd(2) << 2.0, 2.0).finished();
+    L.j_max = (Eigen::VectorXd(2) << 10.0, 10.0).finished();
+
+    SCurveTrajectoryGenerator gen(2);
+    gen.setLimits(L);
+    GenerationOptions opts;
+    opts.blend_radius = 0.1;
+    opts.corner_handling = CornerHandling::UseBlending;
+    gen.setOptions(opts);
+
+    EXPECT_THROW(gen.generate(W), ValidationError);
 }
 
 TEST(CornerHandling, HybridCollapseRevertsToStop)

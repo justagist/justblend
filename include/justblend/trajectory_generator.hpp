@@ -25,7 +25,7 @@ public:
     void setLimits(const Limits& limits);
     void setOptions(const GenerationOptions& opts);
 
-    virtual Trajectory generate(const Eigen::MatrixXd& waypoints);
+    Trajectory generate(const Eigen::MatrixXd& waypoints);
 
     std::size_t dim() const noexcept { return dim_; }
     bool limitsSet() const noexcept { return limits_.has_value(); }

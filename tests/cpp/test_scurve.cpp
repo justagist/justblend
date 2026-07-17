@@ -59,55 +59,44 @@ TEST(ScurveProfile, SevenPhaseRestToRest)
     EXPECT_LE(b.max_j, 10.0 + 1e-9);
 }
 
-TEST(ScurveProfile, FourPhaseNoCruise)
+TEST(ScurveProfile, NoCruiseWhenDistanceTooShort)
 {
-    // Smaller D -> no cruise phase.
-    auto phases = scurvePhases(0.0, 0.0, 2.0, 3.0, 10.0, 2.0);
-    bool has_cruise = false;
-    for (const auto& p : phases)
-    {
-        if (p.jerk == 0.0 && p.duration > 1e-9)
-        {
-            // either constant-accel inside ramp or top cruise. There can be two cruise-like
-            // entries in a ramp, but no extra top cruise when the accel/decel touch.
-            (void)p;
-        }
-    }
-    (void)has_cruise;
+    // D=1.5 < ramp-up + ramp-down distance at vmax=2: bisected v_peak (~1.72)
+    // stays below vmax and there is no top-cruise phase (3+3 ramp phases).
+    auto phases = scurvePhases(0.0, 0.0, 2.0, 3.0, 10.0, 1.5);
+    EXPECT_EQ(phases.size(), 6u);
 
     double T = totalDuration(phases);
     auto end = sampleScurve(T, 0.0, phases);
-    EXPECT_NEAR(end.s, 2.0, 1e-9);
+    EXPECT_NEAR(end.s, 1.5, 1e-9);
     EXPECT_NEAR(end.sd, 0.0, 1e-9);
     EXPECT_NEAR(end.sdd, 0.0, 1e-9);
 
     auto b = sweepBounds(0.0, phases, 1e-4);
+    EXPECT_LT(b.max_v, 2.0 - 1e-3); // vmax never reached
     EXPECT_LE(b.max_a, 3.0 + 1e-9);
     EXPECT_LE(b.max_j, 10.0 + 1e-9);
 }
 
-TEST(ScurveProfile, ThreePhaseEachSideNoConstantAccel)
+TEST(ScurveProfile, NoAccelPlateauWhenJerkLimited)
 {
-    // Very low D -> peak accel doesn't reach amax -> 3+3 phases (no constant-accel plateau).
-    auto phases = scurvePhases(0.0, 0.0, 2.0, 5.0, 50.0, 0.2);
-    bool has_const_accel_plateau = false;
-    int idx = 0;
+    // Very small D: peak accel stays below amax, so each ramp is two pure
+    // jerk phases (no constant-accel plateau) -> 4 phases total.
+    auto phases = scurvePhases(0.0, 0.0, 2.0, 5.0, 50.0, 0.05);
+    ASSERT_EQ(phases.size(), 4u);
     for (const auto& p : phases)
     {
-        // Sandwiched zero-jerk phase between non-zero jerks indicates plateau.
-        if (p.jerk == 0.0 && idx > 0 && idx < (int)phases.size() - 1 && p.duration > 1e-9)
-        {
-            // could be top cruise; that's separate. The accel plateau would appear inside a ramp.
-            has_const_accel_plateau = true;
-        }
-        ++idx;
+        EXPECT_NEAR(std::abs(p.jerk), 50.0, 1e-12);
     }
-    (void)has_const_accel_plateau;
+
     double T = totalDuration(phases);
     auto end = sampleScurve(T, 0.0, phases);
-    EXPECT_NEAR(end.s, 0.2, 1e-9);
+    EXPECT_NEAR(end.s, 0.05, 1e-9);
     EXPECT_NEAR(end.sd, 0.0, 1e-9);
     EXPECT_NEAR(end.sdd, 0.0, 1e-9);
+
+    auto b = sweepBounds(0.0, phases, 1e-5);
+    EXPECT_LT(b.max_a, 5.0 - 1e-3); // amax never reached
 }
 
 TEST(ScurveProfile, ReachableMonotone)

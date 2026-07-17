@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cmath>
 #include <sstream>
-#include <stdexcept>
 
 #include "internal/blend.hpp"
 #include "internal/scurve_profile.hpp"
@@ -14,6 +13,11 @@ namespace justblend::internal
 
 namespace
 {
+
+// Corners whose direction change is within ~2.6 degrees of a full reversal
+// cannot be blended through: the blend would start and end at the same point
+// and miss the waypoint entirely.
+constexpr double kReversalCosThreshold = -0.999;
 
 // numpy.allclose(a, b, atol=1e-9, rtol=1e-5) semantics.
 bool allClose(const Eigen::VectorXd& a, const Eigen::VectorXd& b, double atol = 1e-9, double rtol = 1e-5)
@@ -65,7 +69,7 @@ std::shared_ptr<PlannedTrajectoryData> plan(
     }
     if (limits.v_max.size() != D || limits.a_max.size() != D)
     {
-        throw std::invalid_argument("Limits dimension does not match waypoint dimension.");
+        throw ValidationError("Limits dimension does not match waypoint dimension.");
     }
     if (use_scurve)
     {
@@ -75,13 +79,13 @@ std::shared_ptr<PlannedTrajectoryData> plan(
         }
         if (limits.j_max->size() != D)
         {
-            throw std::invalid_argument("j_max dimension does not match waypoint dimension.");
+            throw ValidationError("j_max dimension does not match waypoint dimension.");
         }
     }
     if (options.corner_handling != CornerHandling::StrictCorners &&
         options.corner_handling != CornerHandling::UseBlending && options.corner_handling != CornerHandling::Hybrid)
     {
-        throw std::invalid_argument("Unknown corner_handling value.");
+        throw ValidationError("Unknown corner_handling value.");
     }
 
     // Per-corner radii size check (1 broadcasts, else must match N - 2).
@@ -93,7 +97,7 @@ std::shared_ptr<PlannedTrajectoryData> plan(
         {
             std::ostringstream oss;
             oss << "blend_radii must have size 1 or N-2 = " << n_interior << "; got size " << sz << ".";
-            throw std::invalid_argument(oss.str());
+            throw ValidationError(oss.str());
         }
     }
     auto radius_for_corner = [&](Eigen::Index k) -> double
@@ -160,6 +164,17 @@ std::shared_ptr<PlannedTrajectoryData> plan(
             corner_type[k] = CornerType::Stop;
             continue;
         }
+        if (u_prev.dot(u_curr) <= kReversalCosThreshold)
+        {
+            if (options.corner_handling == CornerHandling::UseBlending)
+            {
+                std::ostringstream oss;
+                oss << "Blend at waypoint " << k << " is a near-reversal; cannot blend through a direction reversal.";
+                throw ValidationError(oss.str());
+            }
+            corner_type[k] = CornerType::Stop;
+            continue;
+        }
         double max_r_geom = std::min(L_full(k - 1), L_full(k)) / 2.0;
         double r_requested = radius_for_corner(k);
         double r = std::min(r_requested, max_r_geom);
@@ -214,10 +229,7 @@ std::shared_ptr<PlannedTrajectoryData> plan(
                 L_eff(k) -= blend_r[k];
             }
         }
-        if ((L_eff.array() < -1e-9).any())
-        {
-            throw ValidationError("Blends overlap; reduce blend_radius.");
-        }
+        // Per-corner clipping to min(adjacent L)/2 keeps L_eff >= 0 up to rounding.
         L_eff = L_eff.cwiseMax(0.0);
 
         Eigen::VectorXd U_cap = Eigen::VectorXd::Zero(N);
@@ -367,7 +379,6 @@ std::shared_ptr<PlannedTrajectoryData> plan(
             seg.blend.d_in = u_dir.row(k).transpose();
             seg.blend.d_out = u_dir.row(k + 1).transpose();
             seg.blend.q_start = waypoints.row(kk).transpose() - r_b * u_dir.row(k).transpose();
-            seg.blend.q_center = waypoints.row(kk).transpose();
             seg.duration = T_b;
             out->segments.push_back(std::move(seg));
         }

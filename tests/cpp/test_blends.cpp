@@ -68,7 +68,6 @@ TEST(BlendSample, ParabolicEndpointsMatch)
     seg.d_in = vec3(1.0, 0.0, 0.0);
     seg.d_out = vec3(0.0, 1.0, 0.0);
     seg.q_start = vec3(0.0, 0.0, 0.0);
-    seg.q_center = seg.q_start + seg.r * seg.d_in;
 
     auto s0 = sampleBlend(0.0, seg);
     EXPECT_NEAR((s0.q - seg.q_start).norm(), 0.0, 1e-12);
@@ -88,7 +87,6 @@ TEST(BlendSample, HermiteZeroAccelAtBoundaries)
     seg.d_in = vec3(1.0, 0.0, 0.0);
     seg.d_out = vec3(0.0, 1.0, 0.0);
     seg.q_start = vec3(0.0, 0.0, 0.0);
-    seg.q_center = seg.q_start + seg.r * seg.d_in;
 
     auto s0 = sampleBlend(0.0, seg);
     auto s1 = sampleBlend(seg.duration, seg);

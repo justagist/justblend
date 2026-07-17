@@ -77,22 +77,90 @@ dense = traj.samples(dt=0.002)
 arbitrary = traj.samples(np.linspace(0, traj.duration(), 1000))
 ```
 
-## Install
+## Corner semantics
+
+- `blend_radius` is the cut-back distance along each adjacent leg of the
+  corner, not an arc radius: a blend replaces the final `r` of the incoming
+  segment and the first `r` of the outgoing one.
+- Blended corners cut the corner -- the trajectory does not pass through a
+  blended interior waypoint. Use `StrictCorners` (or a per-corner radius via
+  `blend_radii`) where exact pass-through matters.
+- Corners within ~2.6 degrees of a full reversal (the path doubles back on
+  itself) cannot be blended: `Hybrid` falls back to a full stop at the
+  waypoint, `UseBlending` raises a `ValidationError`.
+- An S-curve trajectory is jerk-limited end to end only with the default
+  Hermite blends. Forcing `blend_shape = Parabolic` on the S-curve generator
+  keeps the velocity and acceleration limits but introduces acceleration
+  steps at blend boundaries, i.e. unbounded jerk there.
+
+All input-validation failures throw `justblend::ValidationError`, which the
+Python bindings raise as a `ValueError` subclass.
+
+## Install -- C++
+
+Requirements: CMake ≥ 3.18, a C++17 compiler, and Eigen 3.3+ (any package
+that exposes `find_package(Eigen3 NO_MODULE)` -- the Debian/Ubuntu
+`libeigen3-dev` package, vcpkg, conan, brew, or a manual install all work).
+
+### Build and install to a prefix
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
+    -DJUSTBLEND_BUILD_TESTS=OFF \
+    -DJUSTBLEND_BUILD_EXAMPLES=OFF \
+    -DJUSTBLEND_BUILD_PYTHON_BINDINGS=OFF
+cmake --build build --parallel
+cmake --install build --prefix /your/install/prefix    # omit --prefix for /usr/local
+```
+
+This installs:
+
+- `<prefix>/include/justblend/*.hpp`
+- `<prefix>/lib/libjustblend.a`
+- `<prefix>/lib/cmake/justblend/justblend{Config,ConfigVersion,Targets}.cmake`
+
+### Use from another CMake project
+
+After installing, consume justblend with `find_package`:
+
+```cmake
+find_package(justblend 0.1.0 REQUIRED)
+
+add_executable(my_app main.cpp)
+target_link_libraries(my_app PRIVATE justblend::justblend)
+```
+
+Then configure your project with `-DCMAKE_PREFIX_PATH=/your/install/prefix`
+(or set `justblend_DIR=<prefix>/lib/cmake/justblend`).
+
+You don't have to install: justblend also exports its targets from the
+build tree, so pointing `CMAKE_PREFIX_PATH` at the build directory works
+just as well.
+
+To vendor justblend as a subdirectory (git submodule, FetchContent, or a
+plain copy), drop `add_subdirectory(path/to/justblend)` into your
+`CMakeLists.txt` -- the same `justblend::justblend` target becomes
+available, and the test / example / Python-binding targets stay OFF by
+default when consumed this way.
+
+### Run tests and examples
+
+```bash
+cmake -S . -B build -DJUSTBLEND_BUILD_TESTS=ON -DJUSTBLEND_BUILD_EXAMPLES=ON
+cmake --build build --parallel
+ctest --test-dir build --output-on-failure
+./build/examples/cpp/example_basic_2d
+```
+
+## Install -- Python
 
 ```bash
 pip install .
 ```
 
-Requires CMake ≥ 3.18, a C++17 compiler, and Eigen 3.3+. `pip install`
-fetches `scikit-build-core` and `pybind11` automatically.
-
-To build the C++ library and tests directly:
-
-```bash
-cmake -S . -B build -DJUSTBLEND_BUILD_TESTS=ON
-cmake --build build --parallel
-ctest --test-dir build --output-on-failure
-```
+`pip install` fetches `scikit-build-core` and `pybind11` automatically and
+drives the same CMake build under the hood -- no separate C++ install step
+needed. Eigen 3.3+ must still be installed on the host.
 
 ## License
 
