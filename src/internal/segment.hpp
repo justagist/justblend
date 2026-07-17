@@ -59,6 +59,8 @@ struct PlannedTrajectoryData
     Eigen::VectorXd junction_speeds;
     std::vector<double> blend_radii;
     std::vector<CornerType> corner_types;
+    std::vector<double> waypoint_times;     // size N; blend corners: time of closest approach
+    std::vector<double> corner_deviations;  // size N; nonzero only at blend corners
     BlendShape blend_shape = BlendShape::Parabolic;
     CornerHandling corner_handling = CornerHandling::StrictCorners;
     std::size_t dim = 0;

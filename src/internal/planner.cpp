@@ -57,7 +57,7 @@ SegmentInfo extractInfo(const Segment& seg)
 
 std::shared_ptr<PlannedTrajectoryData> plan(
     const Eigen::MatrixXd& waypoints, const Limits& limits, const GenerationOptions& options,
-    BlendShape effective_blend_shape, bool use_scurve
+    BlendShape effective_blend_shape, bool use_scurve, double v_start, double v_end
 )
 {
     const Eigen::Index N = waypoints.rows();
@@ -140,6 +140,19 @@ std::shared_ptr<PlannedTrajectoryData> plan(
         {
             sddd_max(k) = (limits.j_max->array() / abs_dir.array()).minCoeff();
         }
+    }
+
+    if (v_start < 0.0 || v_end < 0.0)
+    {
+        throw ValidationError("Boundary speeds must be >= 0.");
+    }
+    if (v_start > sd_max(0) + 1e-12)
+    {
+        throw ValidationError("v_start exceeds the velocity limit along the first segment.");
+    }
+    if (v_end > sd_max(N - 2) + 1e-12)
+    {
+        throw ValidationError("v_end exceeds the velocity limit along the last segment.");
     }
 
     // Classify corners
@@ -233,6 +246,8 @@ std::shared_ptr<PlannedTrajectoryData> plan(
         L_eff = L_eff.cwiseMax(0.0);
 
         Eigen::VectorXd U_cap = Eigen::VectorXd::Zero(N);
+        U_cap(0) = v_start;
+        U_cap(N - 1) = v_end;
         for (Eigen::Index k = 1; k < N - 1; ++k)
         {
             if (corner_type[k] == CornerType::Pass)
@@ -312,6 +327,17 @@ std::shared_ptr<PlannedTrajectoryData> plan(
             break;
     }
 
+    // The passes only ever lower junction speeds, so a boundary speed that
+    // came out below the request cannot be realised on this path.
+    if (U(0) + 1e-9 < v_start)
+    {
+        throw ValidationError("v_start infeasible: cannot slow down to the next junction speed within the first segment.");
+    }
+    if (U(N - 1) + 1e-9 < v_end)
+    {
+        throw ValidationError("v_end infeasible: cannot reach the requested end speed within the last segment.");
+    }
+
     // Build segment list
     auto out = std::make_shared<PlannedTrajectoryData>();
     out->dim = static_cast<std::size_t>(D);
@@ -322,6 +348,12 @@ std::shared_ptr<PlannedTrajectoryData> plan(
     out->junction_speeds = U;
     out->blend_radii = blend_r;
     out->corner_types = corner_type;
+
+    // Per-waypoint passage times (blend corners: time of closest approach,
+    // i.e. the blend midpoint) and analytic corner-cut deviations.
+    std::vector<double> waypoint_time(static_cast<std::size_t>(N), 0.0);
+    std::vector<double> corner_deviation(static_cast<std::size_t>(N), 0.0);
+    double t_cursor = 0.0;
 
     for (Eigen::Index k = 0; k < N - 1; ++k)
     {
@@ -361,6 +393,7 @@ std::shared_ptr<PlannedTrajectoryData> plan(
                 seg.linear.duration = T;
                 seg.duration = T;
             }
+            t_cursor += seg.duration;
             out->segments.push_back(std::move(seg));
         }
 
@@ -381,8 +414,22 @@ std::shared_ptr<PlannedTrajectoryData> plan(
             seg.blend.q_start = waypoints.row(kk).transpose() - r_b * u_dir.row(k).transpose();
             seg.duration = T_b;
             out->segments.push_back(std::move(seg));
+
+            // Deviation at the blend midpoint: (r/4)|d_out - d_in| for a
+            // parabolic blend, (3r/16)|d_out - d_in| for a Hermite blend.
+            const double delta_norm = (u_dir.row(kk) - u_dir.row(k)).norm();
+            const double factor = (effective_blend_shape == BlendShape::Parabolic) ? 0.25 : 3.0 / 16.0;
+            corner_deviation[kk] = factor * r_b * delta_norm;
+            waypoint_time[kk] = t_cursor + T_b / 2.0;
+            t_cursor += T_b;
+        }
+        else
+        {
+            waypoint_time[kk] = t_cursor;
         }
     }
+    out->waypoint_times = std::move(waypoint_time);
+    out->corner_deviations = std::move(corner_deviation);
 
     out->cumulative_t.assign(out->segments.size() + 1, 0.0);
     for (std::size_t i = 0; i < out->segments.size(); ++i)

@@ -12,7 +12,7 @@ namespace justblend::internal
 
 std::shared_ptr<PlannedTrajectoryData> plan(
     const Eigen::MatrixXd& waypoints, const Limits& limits, const GenerationOptions& options,
-    BlendShape effective_blend_shape, bool use_scurve
+    BlendShape effective_blend_shape, bool use_scurve, double v_start, double v_end
 );
 
 } // namespace justblend::internal

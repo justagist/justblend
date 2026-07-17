@@ -48,6 +48,14 @@ void TrajectoryGenerator::setOptions(const GenerationOptions& opts)
             throw ValidationError("setOptions: every blend_radii entry must be > 0.");
         }
     }
+    if (!(opts.velocity_scaling_factor > 0.0) || opts.velocity_scaling_factor > 1.0)
+    {
+        throw ValidationError("setOptions: velocity_scaling_factor must be in (0, 1].");
+    }
+    if (!(opts.acceleration_scaling_factor > 0.0) || opts.acceleration_scaling_factor > 1.0)
+    {
+        throw ValidationError("setOptions: acceleration_scaling_factor must be in (0, 1].");
+    }
     options_ = opts;
 }
 
@@ -74,7 +82,7 @@ void TrajectoryGenerator::validateLimitsBase(const Limits& limits) const
     }
 }
 
-Trajectory TrajectoryGenerator::generate(const Eigen::MatrixXd& waypoints)
+Trajectory TrajectoryGenerator::generate(const Eigen::MatrixXd& waypoints, double v_start, double v_end)
 {
     if (!limits_.has_value())
         throw ValidationError("Limits must be set before calling generate().");
@@ -83,7 +91,10 @@ Trajectory TrajectoryGenerator::generate(const Eigen::MatrixXd& waypoints)
         throw ValidationError("generate: waypoints column count does not match dim.");
     }
     BlendShape shape = options_.blend_shape.value_or(defaultBlendShape());
-    auto data = internal::plan(waypoints, *limits_, options_, shape, useScurveProfile());
+    Limits scaled = *limits_;
+    scaled.v_max *= options_.velocity_scaling_factor;
+    scaled.a_max *= options_.acceleration_scaling_factor;
+    auto data = internal::plan(waypoints, scaled, options_, shape, useScurveProfile(), v_start, v_end);
     return Trajectory(std::move(data));
 }
 

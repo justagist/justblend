@@ -66,23 +66,29 @@ PYBIND11_MODULE(_core, m)
         .def(
             py::init(
                 [](double blend_radius, std::optional<Eigen::VectorXd> blend_radii, CornerHandling corner_handling,
-                   std::optional<BlendShape> blend_shape)
+                   std::optional<BlendShape> blend_shape, double velocity_scaling_factor,
+                   double acceleration_scaling_factor)
                 {
                     GenerationOptions o;
                     o.blend_radius = blend_radius;
                     o.blend_radii = std::move(blend_radii);
                     o.corner_handling = corner_handling;
                     o.blend_shape = blend_shape;
+                    o.velocity_scaling_factor = velocity_scaling_factor;
+                    o.acceleration_scaling_factor = acceleration_scaling_factor;
                     return o;
                 }
             ),
             py::arg("blend_radius") = 0.1, py::arg("blend_radii") = std::nullopt,
-            py::arg("corner_handling") = CornerHandling::StrictCorners, py::arg("blend_shape") = std::nullopt
+            py::arg("corner_handling") = CornerHandling::StrictCorners, py::arg("blend_shape") = std::nullopt,
+            py::arg("velocity_scaling_factor") = 1.0, py::arg("acceleration_scaling_factor") = 1.0
         )
         .def_readwrite("blend_radius", &GenerationOptions::blend_radius)
         .def_readwrite("blend_radii", &GenerationOptions::blend_radii)
         .def_readwrite("corner_handling", &GenerationOptions::corner_handling)
-        .def_readwrite("blend_shape", &GenerationOptions::blend_shape);
+        .def_readwrite("blend_shape", &GenerationOptions::blend_shape)
+        .def_readwrite("velocity_scaling_factor", &GenerationOptions::velocity_scaling_factor)
+        .def_readwrite("acceleration_scaling_factor", &GenerationOptions::acceleration_scaling_factor);
 
     py::class_<Sample>(m, "Sample")
         .def_readonly("t", &Sample::t)
@@ -127,6 +133,10 @@ PYBIND11_MODULE(_core, m)
         .def("junction_speeds", &Trajectory::junctionSpeeds, py::return_value_policy::reference_internal)
         .def("blend_radii", &Trajectory::blendRadii, py::return_value_policy::reference_internal)
         .def("corner_types", &Trajectory::cornerTypes, py::return_value_policy::reference_internal)
+        .def("segment_start_times", &Trajectory::segmentStartTimes, py::return_value_policy::reference_internal)
+        .def("waypoint_times", &Trajectory::waypointTimes, py::return_value_policy::reference_internal)
+        .def("corner_deviations", &Trajectory::cornerDeviations, py::return_value_policy::reference_internal)
+        .def("max_corner_deviation", &Trajectory::maxCornerDeviation)
         .def("blend_shape", &Trajectory::blendShape)
         .def("corner_handling", &Trajectory::cornerHandling)
         .def("num_segments", &Trajectory::numSegments)
@@ -136,7 +146,10 @@ PYBIND11_MODULE(_core, m)
     py::class_<TrajectoryGenerator>(m, "TrajectoryGenerator")
         .def("set_limits", &TrajectoryGenerator::setLimits, py::arg("limits"))
         .def("set_options", &TrajectoryGenerator::setOptions, py::arg("options"))
-        .def("generate", &TrajectoryGenerator::generate, py::arg("waypoints"))
+        .def(
+            "generate", &TrajectoryGenerator::generate, py::arg("waypoints"), py::arg("v_start") = 0.0,
+            py::arg("v_end") = 0.0
+        )
         .def("dim", &TrajectoryGenerator::dim)
         .def("limits_set", &TrajectoryGenerator::limitsSet)
         .def("limits", &TrajectoryGenerator::limits, py::return_value_policy::reference_internal)

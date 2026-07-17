@@ -66,16 +66,27 @@ void applyEndpointSnap(
     bool is_start, bool is_end
 )
 {
+    // Boundary velocities follow the (possibly nonzero) junction speeds along
+    // the first / last segment direction; first and last segments are always
+    // linear (endpoints are never blended).
     if (is_start)
     {
         q = d.waypoints.row(0).transpose();
         qd.setZero();
+        if (!d.segments.empty() && d.junction_speeds.size() > 0 && d.segments.front().type == SegmentType::Linear)
+        {
+            qd = d.junction_speeds(0) * d.segments.front().linear.u_dir;
+        }
         qdd.setZero();
     }
     if (is_end)
     {
         q = d.waypoints.row(d.waypoints.rows() - 1).transpose();
         qd.setZero();
+        if (!d.segments.empty() && d.junction_speeds.size() > 0 && d.segments.back().type == SegmentType::Linear)
+        {
+            qd = d.junction_speeds(d.junction_speeds.size() - 1) * d.segments.back().linear.u_dir;
+        }
         qdd.setZero();
     }
 }
@@ -109,6 +120,31 @@ const std::vector<CornerType>& Trajectory::cornerTypes() const
     if (!data_)
         throw std::logic_error("Trajectory is empty.");
     return data_->corner_types;
+}
+const std::vector<double>& Trajectory::segmentStartTimes() const
+{
+    if (!data_)
+        throw std::logic_error("Trajectory is empty.");
+    return data_->cumulative_t;
+}
+const std::vector<double>& Trajectory::waypointTimes() const
+{
+    if (!data_)
+        throw std::logic_error("Trajectory is empty.");
+    return data_->waypoint_times;
+}
+const std::vector<double>& Trajectory::cornerDeviations() const
+{
+    if (!data_)
+        throw std::logic_error("Trajectory is empty.");
+    return data_->corner_deviations;
+}
+double Trajectory::maxCornerDeviation() const
+{
+    if (!data_)
+        throw std::logic_error("Trajectory is empty.");
+    const auto& dev = data_->corner_deviations;
+    return dev.empty() ? 0.0 : *std::max_element(dev.begin(), dev.end());
 }
 BlendShape Trajectory::blendShape() const noexcept { return data_ ? data_->blend_shape : BlendShape::Parabolic; }
 CornerHandling Trajectory::cornerHandling() const noexcept

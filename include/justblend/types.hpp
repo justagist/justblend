@@ -62,6 +62,12 @@ struct GenerationOptions
 
     CornerHandling corner_handling = CornerHandling::StrictCorners;
     std::optional<BlendShape> blend_shape;
+
+    // Uniform limit scaling in (0, 1] applied at generation time (mirrors
+    // MoveIt's scaling factors). velocity_scaling_factor scales v_max,
+    // acceleration_scaling_factor scales a_max; j_max is never scaled.
+    double velocity_scaling_factor = 1.0;
+    double acceleration_scaling_factor = 1.0;
 };
 
 struct Sample

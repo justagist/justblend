@@ -190,3 +190,55 @@ def test_blend_radii_non_positive_rejected_in_set_options():
     gen = jb.SCurveTrajectoryGenerator(dim=3)
     with pytest.raises(ValueError):
         gen.set_options(opts)
+
+
+def test_boundary_speeds():
+    W = np.array([[0.0, 0.0], [2.0, 0.0]])
+    gen = jb.SCurveTrajectoryGenerator(dim=2)
+    gen.set_limits(jb.Limits(v_max=np.ones(2), a_max=2 * np.ones(2), j_max=10 * np.ones(2)))
+    traj = gen.generate(W, v_start=0.3, v_end=0.2)
+    np.testing.assert_allclose(traj.sample(0.0).qd, [0.3, 0.0], atol=1e-9)
+    np.testing.assert_allclose(traj.sample(traj.duration()).qd, [0.2, 0.0], atol=1e-9)
+    with pytest.raises(jb.ValidationError):
+        gen.generate(np.array([[0.0, 0.0], [0.01, 0.0]]), v_end=0.9)
+
+
+def test_waypoint_times_and_deviations(waypoints_3d, limits_3d):
+    traj = _make_scurve(waypoints_3d, limits_3d, blend_radius=0.15, corner_handling=jb.CornerHandling.HYBRID)
+    wt = traj.waypoint_times()
+    assert len(wt) == waypoints_3d.shape[0]
+    assert wt[0] == 0.0
+    assert wt[-1] == pytest.approx(traj.duration(), abs=1e-12)
+    assert all(b > a for a, b in zip(wt, wt[1:]))
+
+    dev = traj.corner_deviations()
+    assert len(dev) == waypoints_3d.shape[0]
+    assert traj.max_corner_deviation() == pytest.approx(max(dev))
+    for k, ct in enumerate(traj.corner_types()):
+        if ct == jb.CornerType.BLEND:
+            s = traj.sample(wt[k])
+            assert np.linalg.norm(s.q - waypoints_3d[k]) == pytest.approx(dev[k], abs=1e-9)
+        else:
+            assert dev[k] == 0.0
+
+    st = traj.segment_start_times()
+    assert len(st) == traj.num_segments() + 1
+    assert st[-1] == pytest.approx(traj.duration(), abs=1e-12)
+
+
+def test_scaling_factors(waypoints_3d, limits_3d):
+    full = _make_scurve(waypoints_3d, limits_3d, corner_handling=jb.CornerHandling.HYBRID)
+    scaled = _make_scurve(
+        waypoints_3d,
+        limits_3d,
+        corner_handling=jb.CornerHandling.HYBRID,
+        velocity_scaling_factor=0.5,
+        acceleration_scaling_factor=0.5,
+    )
+    assert scaled.duration() > full.duration()
+    r = scaled.samples(dt=0.005)
+    for i in range(3):
+        assert np.max(np.abs(r.qd[:, i])) <= 0.5 * limits_3d.v_max[i] + 1e-9
+        assert np.max(np.abs(r.qdd[:, i])) <= 0.5 * limits_3d.a_max[i] + 1e-9
+    with pytest.raises(jb.ValidationError):
+        jb.SCurveTrajectoryGenerator(dim=3).set_options(jb.GenerationOptions(velocity_scaling_factor=1.5))

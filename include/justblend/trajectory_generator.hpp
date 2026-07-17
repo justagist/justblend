@@ -25,7 +25,11 @@ public:
     void setLimits(const Limits& limits);
     void setOptions(const GenerationOptions& opts);
 
-    Trajectory generate(const Eigen::MatrixXd& waypoints);
+    // Generate a trajectory through the waypoint rows. v_start / v_end are
+    // optional tangential boundary speeds along the first / last segment
+    // direction; they must be feasible under the (scaled) limits or a
+    // ValidationError is thrown.
+    Trajectory generate(const Eigen::MatrixXd& waypoints, double v_start = 0.0, double v_end = 0.0);
 
     std::size_t dim() const noexcept { return dim_; }
     bool limitsSet() const noexcept { return limits_.has_value(); }

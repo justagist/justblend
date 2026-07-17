@@ -96,6 +96,36 @@ arbitrary = traj.samples(np.linspace(0, traj.duration(), 1000))
 All input-validation failures throw `justblend::ValidationError`, which the
 Python bindings raise as a `ValueError` subclass.
 
+## Boundary speeds, timing and deviation queries
+
+`generate()` accepts optional tangential boundary speeds along the first and
+last segment direction; infeasible requests (too fast for the limits or for
+the available distance) raise a `ValidationError`:
+
+```cpp
+auto traj = gen.generate(waypoints, /*v_start=*/0.3, /*v_end=*/0.0);
+```
+
+```python
+traj = gen.generate(waypoints, v_start=0.3, v_end=0.0)
+```
+
+`GenerationOptions` carries `velocity_scaling_factor` and
+`acceleration_scaling_factor` in `(0, 1]` (matching MoveIt's semantics):
+they scale `v_max` / `a_max` at generation time; `j_max` is never scaled.
+
+The `Trajectory` exposes timing and corner-cut metadata:
+
+- `segment_start_times()` -- start time of each segment plus the total
+  duration as the last entry.
+- `waypoint_times()` -- passage time per waypoint; for blended corners this
+  is the time of closest approach (the blend midpoint).
+- `corner_deviations()` / `max_corner_deviation()` -- closed-form distance
+  between each blended corner's waypoint and the blend path
+  (`(r/4)·|d_out - d_in|` for parabolic, `(3r/16)·|d_out - d_in|` for
+  Hermite blends; zero for non-blend corners). Useful to bound how far the
+  blended trajectory strays from the original polyline.
+
 ## Install -- C++
 
 Requirements: CMake ≥ 3.18, a C++17 compiler, and Eigen 3.3+ (any package
