@@ -1,25 +1,41 @@
 # justblend
 
-Closed-form N-dimensional trajectory generator with smooth corner blends.
-General-purpose: works for joint trajectories, Cartesian paths, CNC tool
-paths, animation curves -- anywhere you have a list of points in some
+Closed-form N-dimensional trajectory generation with smooth corner blends.
+General-purpose: joint trajectories, Cartesian paths, CNC tool paths,
+animation curves -- anywhere you have a list of points in some
 D-dimensional space and want a velocity/acceleration/jerk-limited smooth
 trajectory through them.
 
-Two per-segment profiles:
+![Corner blending and speed profile](docs/blending.png)
 
-- **Trapezoidal** -- bang-bang acceleration, fastest rest-to-rest motion
-  under velocity/acceleration limits.
-- **S-curve** -- 7-phase jerk-limited motion when a jerk limit is given.
+## Highlights
 
-Three corner-handling modes (pass-through, blending, hybrid) and two blend
-shapes (parabolic, cubic-Hermite). The Hermite blend has zero acceleration
-at its boundaries, so it matches an S-curve linear segment's endpoint
-`qdd = 0` and respects a jerk limit through the corner.
+- **Closed form, microsecond generation.** No optimisation loop, no
+  discretisation: typical multi-waypoint problems generate in roughly
+  0.05-0.1 ms and match ruckig's per-segment time-optimal durations on
+  polyline motions (see [benchmarks](benchmarks/README.md)).
+- **Two velocity profiles.** Bang-bang **trapezoidal** for the fastest
+  rest-to-rest motion, or 7-phase jerk-limited **S-curve** when jerk
+  limits are given.
+- **Three corner modes, two blend shapes.** Stop at every waypoint,
+  blend through corners, or a hybrid that blends where feasible. The
+  cubic-Hermite blend has zero acceleration at its boundaries, so an
+  S-curve trajectory stays jerk-limited through the corner.
+- **Analytic guarantees.** Limits are satisfied by construction; the
+  corner-cut deviation and per-waypoint passage times come back in
+  closed form.
+- **Boundary speeds and duration stretching** for moving-start
+  replanning and speed control.
+- **C++17 and Python.** Static library with clean CMake exports;
+  pybind11 bindings with type stubs.
 
-The output `Trajectory` object is lazy: it owns a list of analytic segments
-and can be sampled at any time `t ∈ [0, duration]` without precomputing a
+The output `Trajectory` is lazy: it owns a list of analytic segments and
+can be sampled at any time `t` in `[0, duration]` without precomputing a
 dense buffer.
+
+![Trapezoidal vs S-curve profiles](docs/profiles.png)
+
+*(figures regenerate with `python docs/generate_readme_figures.py`)*
 
 ## Getting started -- C++
 
