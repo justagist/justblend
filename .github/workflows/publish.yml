@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Build and test manylinux wheels
-        uses: pypa/cibuildwheel@v3
+        uses: pypa/cibuildwheel@v4.1.0
       - uses: actions/upload-artifact@v7
         with:
           name: wheels
