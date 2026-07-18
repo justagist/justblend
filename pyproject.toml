@@ -19,6 +19,9 @@ classifiers = [
 ]
 dependencies = ["numpy>=1.21"]
 
+[project.urls]
+Repository = "https://github.com/justagist/justblend"
+
 [project.optional-dependencies]
 test = ["pytest>=7"]
 plot = ["matplotlib>=3.4"]
@@ -33,6 +36,21 @@ cmake.build-type = "Release"
 # _core*.so from a dev build can never leak into the wheel.
 wheel.packages = []
 build-dir = "build/{wheel_tag}"
+# Keep the sdist to what a source build needs; benchmarks, docs figures and
+# the parity fixtures are repo-only.
+sdist.exclude = ["benchmarks/", "docs/", "tests/", "examples/", ".github/"]
+
+[tool.cibuildwheel]
+# requires-python >= 3.9 prunes older CPythons automatically. musllinux is
+# skipped because Eigen is provisioned via dnf below.
+skip = "*musllinux*"
+archs = ["x86_64"]
+manylinux-x86_64-image = "manylinux_2_28"
+test-requires = "pytest"
+test-command = "pytest {project}/tests/python -q"
+
+[tool.cibuildwheel.linux]
+before-all = "dnf install -y epel-release && dnf install -y eigen3-devel"
 
 [tool.scikit-build.cmake.define]
 JUSTBLEND_BUILD_TESTS = "OFF"

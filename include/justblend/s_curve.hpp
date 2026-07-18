@@ -6,6 +6,8 @@
 namespace justblend
 {
 
+/// @brief Jerk-limited 7-phase S-curve generator; requires j_max in the
+/// limits and defaults to Hermite corner blends.
 class SCurveTrajectoryGenerator : public TrajectoryGenerator
 {
 public:

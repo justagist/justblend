@@ -10,12 +10,16 @@
 namespace justblend
 {
 
+/// @brief Thrown for any invalid user input: bad limits, bad options,
+/// malformed waypoints or an infeasible generation request.
 class ValidationError : public std::runtime_error
 {
 public:
     using std::runtime_error::runtime_error;
 };
 
+/// @brief Per-axis kinematic limits; every vector is sized to the trajectory
+/// dimension. j_max is optional and only required by the S-curve profile.
 struct Limits
 {
     Eigen::VectorXd v_max;
@@ -23,33 +27,38 @@ struct Limits
     std::optional<Eigen::VectorXd> j_max;
 };
 
+/// @brief Geometric shape of a corner blend.
 enum class BlendShape
 {
-    PARABOLIC,
-    HERMITE,
+    PARABOLIC, ///< Constant acceleration through the corner (steps at its boundaries).
+    HERMITE,   ///< Cubic blend with zero boundary acceleration; jerk-limited when j_max is set.
 };
 
+/// @brief How interior waypoints with a direction change are handled.
 enum class CornerHandling
 {
-    STRICT_CORNERS,
-    USE_BLENDING,
-    HYBRID,
+    STRICT_CORNERS, ///< Full stop at every direction change; exact pass-through.
+    USE_BLENDING,   ///< Blend every corner; throw ValidationError when infeasible.
+    HYBRID,         ///< Blend where feasible, fall back to a stop otherwise.
 };
 
+/// @brief Classification of each waypoint in the planned trajectory.
 enum class CornerType
 {
-    ENDPOINT,
-    PASS,
-    STOP,
-    BLEND,
+    ENDPOINT, ///< First or last waypoint.
+    PASS,     ///< Collinear waypoint passed at speed.
+    STOP,     ///< Full stop at the waypoint.
+    BLEND,    ///< Corner rounded by a blend segment.
 };
 
+/// @brief Kind of an analytic trajectory segment.
 enum class SegmentType
 {
     LINEAR,
     BLEND,
 };
 
+/// @brief Corner-handling and scaling options applied at generation time.
 struct GenerationOptions
 {
     // Scalar fallback used when blend_radii is unset (the common case).
@@ -70,6 +79,7 @@ struct GenerationOptions
     double acceleration_scaling_factor = 1.0;
 };
 
+/// @brief Trajectory state at one time instant: position, velocity, acceleration.
 struct Sample
 {
     double t = 0.0;
@@ -78,6 +88,8 @@ struct Sample
     Eigen::VectorXd qdd;
 };
 
+/// @brief Public description of one analytic segment; which fields are valid
+/// depends on `type`.
 struct SegmentInfo
 {
     SegmentType type = SegmentType::LINEAR;

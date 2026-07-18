@@ -6,6 +6,9 @@
 namespace justblend
 {
 
+/// @brief Bang-bang acceleration (trapezoidal velocity) generator; the
+/// fastest rest-to-rest profile under velocity/acceleration limits, with
+/// parabolic corner blends by default.
 class TrapezoidalTrajectoryGenerator : public TrajectoryGenerator
 {
 public:

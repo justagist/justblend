@@ -11,6 +11,9 @@
 namespace justblend
 {
 
+/// @brief Base class for the trajectory generators: holds the dimension,
+/// limits and options, and turns waypoint matrices into Trajectory objects.
+/// Use SCurveTrajectoryGenerator or TrapezoidalTrajectoryGenerator.
 class TrajectoryGenerator
 {
 public:

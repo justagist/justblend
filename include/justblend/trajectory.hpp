@@ -16,9 +16,13 @@ namespace internal
 struct PlannedTrajectoryData;
 }
 
+/// @brief Immutable planned trajectory: a list of analytic segments that can
+/// be sampled lazily at any time in [0, duration()]. Copies are cheap (shared,
+/// read-only data) and const sampling is thread-safe.
 class Trajectory
 {
 public:
+    /// @brief Batch sampling result; one row per requested time.
     struct SamplesResult
     {
         Eigen::VectorXd t;
