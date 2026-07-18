@@ -1,5 +1,11 @@
 # justblend
 
+[![CI](https://github.com/justagist/justblend/actions/workflows/ci.yml/badge.svg)](https://github.com/justagist/justblend/actions/workflows/ci.yml)
+[![PyPI version](https://img.shields.io/pypi/v/justblend)](https://pypi.org/project/justblend/)
+[![Python versions](https://img.shields.io/pypi/pyversions/justblend)](https://pypi.org/project/justblend/)
+[![C++17](https://img.shields.io/badge/C%2B%2B-17-blue.svg)](https://en.cppreference.com/w/cpp/17)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 Closed-form N-dimensional trajectory generation with smooth corner blends.
 General-purpose: joint trajectories, Cartesian paths, CNC tool paths,
 animation curves -- anywhere you have a list of points in some
