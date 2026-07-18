@@ -115,11 +115,11 @@ TEST(CornerDeviation, HermiteMatchesDenseSampling)
     gen.setLimits(limits2d(1.0, 2.0, 10.0));
     GenerationOptions opts;
     opts.blend_radius = 0.2;
-    opts.corner_handling = CornerHandling::Hybrid;
+    opts.corner_handling = CornerHandling::HYBRID;
     gen.setOptions(opts);
 
     auto traj = gen.generate(W);
-    ASSERT_EQ(traj.cornerTypes()[1], CornerType::Blend);
+    ASSERT_EQ(traj.cornerTypes()[1], CornerType::BLEND);
 
     // 90 degree corner: |d_out - d_in| = sqrt(2); Hermite factor 3/16.
     const double expected = (3.0 / 16.0) * 0.2 * std::sqrt(2.0);
@@ -142,11 +142,11 @@ TEST(CornerDeviation, ParabolicMatchesDenseSampling)
     gen.setLimits(L);
     GenerationOptions opts;
     opts.blend_radius = 0.2;
-    opts.corner_handling = CornerHandling::Hybrid;
+    opts.corner_handling = CornerHandling::HYBRID;
     gen.setOptions(opts);
 
     auto traj = gen.generate(W);
-    ASSERT_EQ(traj.cornerTypes()[1], CornerType::Blend);
+    ASSERT_EQ(traj.cornerTypes()[1], CornerType::BLEND);
 
     const double expected = 0.25 * 0.2 * std::sqrt(2.0);
     EXPECT_NEAR(traj.cornerDeviations()[1], expected, 1e-12);
@@ -162,7 +162,7 @@ TEST(WaypointTimes, BlendCornersPassAtClosestApproach)
     gen.setLimits(limits2d(1.0, 2.0, 10.0));
     GenerationOptions opts;
     opts.blend_radius = 0.1;
-    opts.corner_handling = CornerHandling::Hybrid;
+    opts.corner_handling = CornerHandling::HYBRID;
     gen.setOptions(opts);
 
     auto traj = gen.generate(W);
@@ -179,7 +179,7 @@ TEST(WaypointTimes, BlendCornersPassAtClosestApproach)
     // the analytic corner deviation (closest approach).
     for (std::size_t k = 1; k + 1 < wt.size(); ++k)
     {
-        if (traj.cornerTypes()[k] == CornerType::Blend)
+        if (traj.cornerTypes()[k] == CornerType::BLEND)
         {
             auto s = traj.sample(wt[k]);
             EXPECT_NEAR((s.q - W.row(static_cast<Eigen::Index>(k)).transpose()).norm(),
@@ -196,7 +196,7 @@ TEST(WaypointTimes, StopCornersPassExactlyThroughWaypoints)
     SCurveTrajectoryGenerator gen(2);
     gen.setLimits(limits2d(1.0, 2.0, 10.0));
     GenerationOptions opts;
-    opts.corner_handling = CornerHandling::StrictCorners;
+    opts.corner_handling = CornerHandling::STRICT_CORNERS;
     gen.setOptions(opts);
 
     auto traj = gen.generate(W);
@@ -218,7 +218,7 @@ TEST(SegmentStartTimes, MatchSegmentDurations)
     gen.setLimits(limits2d(1.0, 2.0, 10.0));
     GenerationOptions opts;
     opts.blend_radius = 0.1;
-    opts.corner_handling = CornerHandling::Hybrid;
+    opts.corner_handling = CornerHandling::HYBRID;
     gen.setOptions(opts);
 
     auto traj = gen.generate(W);
@@ -261,7 +261,7 @@ TEST(Stretch, MatchesTargetDurationAndPreservesPath)
     gen.setLimits(limits2d(1.0, 2.0, 10.0));
     GenerationOptions opts;
     opts.blend_radius = 0.1;
-    opts.corner_handling = CornerHandling::Hybrid;
+    opts.corner_handling = CornerHandling::HYBRID;
     gen.setOptions(opts);
 
     auto traj = gen.generate(W);

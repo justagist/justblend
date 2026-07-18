@@ -17,7 +17,7 @@ double blendVCap(
 
     double V_vel = (vmax.array() / d_max.array()).minCoeff();
 
-    if (shape == BlendShape::Parabolic)
+    if (shape == BlendShape::PARABOLIC)
     {
         double min_a_ratio = (amax.array() / abs_delta.array()).minCoeff();
         double V_acc = std::sqrt(2.0 * r * min_a_ratio);
@@ -48,7 +48,7 @@ BlendSample sampleBlend(double t_local, const BlendSegmentData& seg)
 
     BlendSample out;
 
-    if (seg.shape == BlendShape::Parabolic)
+    if (seg.shape == BlendShape::PARABOLIC)
     {
         Eigen::VectorXd a = Eigen::VectorXd::Zero(d_in.size());
         if (r > 1e-12)

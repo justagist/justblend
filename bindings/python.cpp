@@ -17,21 +17,21 @@ PYBIND11_MODULE(_core, m)
     py::register_exception<ValidationError>(m, "ValidationError", PyExc_ValueError);
 
     py::enum_<BlendShape>(m, "BlendShape")
-        .value("PARABOLIC", BlendShape::Parabolic)
-        .value("HERMITE", BlendShape::Hermite);
+        .value("PARABOLIC", BlendShape::PARABOLIC)
+        .value("HERMITE", BlendShape::HERMITE);
 
     py::enum_<CornerHandling>(m, "CornerHandling")
-        .value("STRICT_CORNERS", CornerHandling::StrictCorners)
-        .value("USE_BLENDING", CornerHandling::UseBlending)
-        .value("HYBRID", CornerHandling::Hybrid);
+        .value("STRICT_CORNERS", CornerHandling::STRICT_CORNERS)
+        .value("USE_BLENDING", CornerHandling::USE_BLENDING)
+        .value("HYBRID", CornerHandling::HYBRID);
 
     py::enum_<CornerType>(m, "CornerType")
-        .value("ENDPOINT", CornerType::Endpoint)
-        .value("PASS", CornerType::Pass)
-        .value("STOP", CornerType::Stop)
-        .value("BLEND", CornerType::Blend);
+        .value("ENDPOINT", CornerType::ENDPOINT)
+        .value("PASS", CornerType::PASS)
+        .value("STOP", CornerType::STOP)
+        .value("BLEND", CornerType::BLEND);
 
-    py::enum_<SegmentType>(m, "SegmentType").value("LINEAR", SegmentType::Linear).value("BLEND", SegmentType::Blend);
+    py::enum_<SegmentType>(m, "SegmentType").value("LINEAR", SegmentType::LINEAR).value("BLEND", SegmentType::BLEND);
 
     py::class_<Limits>(m, "Limits")
         .def(
@@ -80,7 +80,7 @@ PYBIND11_MODULE(_core, m)
                 }
             ),
             py::arg("blend_radius") = 0.1, py::arg("blend_radii") = std::nullopt,
-            py::arg("corner_handling") = CornerHandling::StrictCorners, py::arg("blend_shape") = std::nullopt,
+            py::arg("corner_handling") = CornerHandling::STRICT_CORNERS, py::arg("blend_shape") = std::nullopt,
             py::arg("velocity_scaling_factor") = 1.0, py::arg("acceleration_scaling_factor") = 1.0
         )
         .def_readwrite("blend_radius", &GenerationOptions::blend_radius)

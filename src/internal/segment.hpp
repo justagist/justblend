@@ -35,7 +35,7 @@ struct LinearSegmentData
 
 struct BlendSegmentData
 {
-    BlendShape shape = BlendShape::Parabolic;
+    BlendShape shape = BlendShape::PARABOLIC;
     double duration = 0.0;
     double V = 0.0;
     double r = 0.0;
@@ -46,7 +46,7 @@ struct BlendSegmentData
 
 struct Segment
 {
-    SegmentType type = SegmentType::Linear;
+    SegmentType type = SegmentType::LINEAR;
     double duration = 0.0;
     LinearSegmentData linear;
     BlendSegmentData blend;
@@ -61,8 +61,8 @@ struct PlannedTrajectoryData
     std::vector<CornerType> corner_types;
     std::vector<double> waypoint_times;     // size N; blend corners: time of closest approach
     std::vector<double> corner_deviations;  // size N; nonzero only at blend corners
-    BlendShape blend_shape = BlendShape::Parabolic;
-    CornerHandling corner_handling = CornerHandling::StrictCorners;
+    BlendShape blend_shape = BlendShape::PARABOLIC;
+    CornerHandling corner_handling = CornerHandling::STRICT_CORNERS;
     std::size_t dim = 0;
     double total_duration = 0.0;
     Eigen::MatrixXd waypoints;

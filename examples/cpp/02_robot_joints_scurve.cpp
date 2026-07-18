@@ -21,7 +21,7 @@ int main()
 
     justblend::GenerationOptions opts;
     opts.blend_radius = 0.15;
-    opts.corner_handling = justblend::CornerHandling::Hybrid;
+    opts.corner_handling = justblend::CornerHandling::HYBRID;
 
     justblend::SCurveTrajectoryGenerator gen(3);
     gen.setLimits(limits);

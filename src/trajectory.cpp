@@ -35,7 +35,7 @@ void sampleAtSegment(
     const internal::Segment& seg, double t_local, Eigen::VectorXd& q, Eigen::VectorXd& qd, Eigen::VectorXd& qdd
 )
 {
-    if (seg.type == SegmentType::Linear)
+    if (seg.type == SegmentType::LINEAR)
     {
         if (seg.linear.is_scurve)
         {
@@ -73,7 +73,7 @@ void applyEndpointSnap(
     {
         q = d.waypoints.row(0).transpose();
         qd.setZero();
-        if (!d.segments.empty() && d.junction_speeds.size() > 0 && d.segments.front().type == SegmentType::Linear)
+        if (!d.segments.empty() && d.junction_speeds.size() > 0 && d.segments.front().type == SegmentType::LINEAR)
         {
             qd = d.junction_speeds(0) * d.segments.front().linear.u_dir;
         }
@@ -83,7 +83,7 @@ void applyEndpointSnap(
     {
         q = d.waypoints.row(d.waypoints.rows() - 1).transpose();
         qd.setZero();
-        if (!d.segments.empty() && d.junction_speeds.size() > 0 && d.segments.back().type == SegmentType::Linear)
+        if (!d.segments.empty() && d.junction_speeds.size() > 0 && d.segments.back().type == SegmentType::LINEAR)
         {
             qd = d.junction_speeds(d.junction_speeds.size() - 1) * d.segments.back().linear.u_dir;
         }
@@ -164,7 +164,7 @@ Trajectory Trajectory::stretchedTo(double target_duration) const
     for (auto& seg : d->segments)
     {
         seg.duration *= s;
-        if (seg.type == SegmentType::Linear)
+        if (seg.type == SegmentType::LINEAR)
         {
             auto& lin = seg.linear;
             lin.duration *= s;
@@ -200,10 +200,10 @@ Trajectory Trajectory::stretchedTo(double target_duration) const
     d->total_duration = target_duration;
     return Trajectory(std::move(d));
 }
-BlendShape Trajectory::blendShape() const noexcept { return data_ ? data_->blend_shape : BlendShape::Parabolic; }
+BlendShape Trajectory::blendShape() const noexcept { return data_ ? data_->blend_shape : BlendShape::PARABOLIC; }
 CornerHandling Trajectory::cornerHandling() const noexcept
 {
-    return data_ ? data_->corner_handling : CornerHandling::StrictCorners;
+    return data_ ? data_->corner_handling : CornerHandling::STRICT_CORNERS;
 }
 std::size_t Trajectory::numSegments() const noexcept { return data_ ? data_->segments.size() : 0; }
 const std::vector<SegmentInfo>& Trajectory::segments() const

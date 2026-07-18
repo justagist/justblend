@@ -34,7 +34,7 @@ SegmentInfo extractInfo(const Segment& seg)
     SegmentInfo info;
     info.type = seg.type;
     info.duration = seg.duration;
-    if (seg.type == SegmentType::Linear)
+    if (seg.type == SegmentType::LINEAR)
     {
         info.v0 = seg.linear.v0;
         info.length = seg.linear.length;
@@ -82,8 +82,8 @@ std::shared_ptr<PlannedTrajectoryData> plan(
             throw ValidationError("j_max dimension does not match waypoint dimension.");
         }
     }
-    if (options.corner_handling != CornerHandling::StrictCorners &&
-        options.corner_handling != CornerHandling::UseBlending && options.corner_handling != CornerHandling::Hybrid)
+    if (options.corner_handling != CornerHandling::STRICT_CORNERS &&
+        options.corner_handling != CornerHandling::USE_BLENDING && options.corner_handling != CornerHandling::HYBRID)
     {
         throw ValidationError("Unknown corner_handling value.");
     }
@@ -156,9 +156,9 @@ std::shared_ptr<PlannedTrajectoryData> plan(
     }
 
     // Classify corners
-    std::vector<CornerType> corner_type(static_cast<std::size_t>(N), CornerType::Pass);
-    corner_type.front() = CornerType::Endpoint;
-    corner_type.back() = CornerType::Endpoint;
+    std::vector<CornerType> corner_type(static_cast<std::size_t>(N), CornerType::PASS);
+    corner_type.front() = CornerType::ENDPOINT;
+    corner_type.back() = CornerType::ENDPOINT;
 
     std::vector<double> blend_r(static_cast<std::size_t>(N), 0.0);
     std::vector<double> V_blend_cap(static_cast<std::size_t>(N), 0.0);
@@ -169,23 +169,23 @@ std::shared_ptr<PlannedTrajectoryData> plan(
         Eigen::VectorXd u_curr = u_dir.row(k).transpose();
         if (allClose(u_prev, u_curr))
         {
-            corner_type[k] = CornerType::Pass;
+            corner_type[k] = CornerType::PASS;
             continue;
         }
-        if (options.corner_handling == CornerHandling::StrictCorners)
+        if (options.corner_handling == CornerHandling::STRICT_CORNERS)
         {
-            corner_type[k] = CornerType::Stop;
+            corner_type[k] = CornerType::STOP;
             continue;
         }
         if (u_prev.dot(u_curr) <= kReversalCosThreshold)
         {
-            if (options.corner_handling == CornerHandling::UseBlending)
+            if (options.corner_handling == CornerHandling::USE_BLENDING)
             {
                 std::ostringstream oss;
                 oss << "Blend at waypoint " << k << " is a near-reversal; cannot blend through a direction reversal.";
                 throw ValidationError(oss.str());
             }
-            corner_type[k] = CornerType::Stop;
+            corner_type[k] = CornerType::STOP;
             continue;
         }
         double max_r_geom = std::min(L_full(k - 1), L_full(k)) / 2.0;
@@ -199,31 +199,31 @@ std::shared_ptr<PlannedTrajectoryData> plan(
             );
             if (V_max > 1e-12)
             {
-                corner_type[k] = CornerType::Blend;
+                corner_type[k] = CornerType::BLEND;
                 blend_r[k] = r;
                 V_blend_cap[k] = V_max;
             }
             else
             {
-                if (options.corner_handling == CornerHandling::UseBlending)
+                if (options.corner_handling == CornerHandling::USE_BLENDING)
                 {
                     std::ostringstream oss;
                     oss << "Blend at waypoint " << k << " infeasible (V_max <= 0).";
                     throw ValidationError(oss.str());
                 }
-                corner_type[k] = CornerType::Stop;
+                corner_type[k] = CornerType::STOP;
             }
         }
         else
         {
-            if (options.corner_handling == CornerHandling::UseBlending)
+            if (options.corner_handling == CornerHandling::USE_BLENDING)
             {
                 std::ostringstream oss;
                 oss << "Blend at waypoint " << k
                     << ": adjacent segments shorter than 2 * blend_radius = " << (2.0 * r_requested) << ".";
                 throw ValidationError(oss.str());
             }
-            corner_type[k] = CornerType::Stop;
+            corner_type[k] = CornerType::STOP;
         }
     }
 
@@ -236,7 +236,7 @@ std::shared_ptr<PlannedTrajectoryData> plan(
         L_eff = L_full;
         for (Eigen::Index k = 1; k < N - 1; ++k)
         {
-            if (corner_type[k] == CornerType::Blend)
+            if (corner_type[k] == CornerType::BLEND)
             {
                 L_eff(k - 1) -= blend_r[k];
                 L_eff(k) -= blend_r[k];
@@ -250,11 +250,11 @@ std::shared_ptr<PlannedTrajectoryData> plan(
         U_cap(N - 1) = v_end;
         for (Eigen::Index k = 1; k < N - 1; ++k)
         {
-            if (corner_type[k] == CornerType::Pass)
+            if (corner_type[k] == CornerType::PASS)
             {
                 U_cap(k) = std::min(sd_max(k - 1), sd_max(k));
             }
-            else if (corner_type[k] == CornerType::Blend)
+            else if (corner_type[k] == CornerType::BLEND)
             {
                 U_cap(k) = V_blend_cap[k];
             }
@@ -308,16 +308,16 @@ std::shared_ptr<PlannedTrajectoryData> plan(
         bool collapsed = false;
         for (Eigen::Index k = 1; k < N - 1; ++k)
         {
-            if (corner_type[k] == CornerType::Blend && U(k) < 1e-6)
+            if (corner_type[k] == CornerType::BLEND && U(k) < 1e-6)
             {
-                if (options.corner_handling == CornerHandling::UseBlending)
+                if (options.corner_handling == CornerHandling::USE_BLENDING)
                 {
                     std::ostringstream oss;
                     oss << "Blend at waypoint " << k
                         << " collapsed (V forced to 0). Use smaller blend_radius or 'hybrid' mode.";
                     throw ValidationError(oss.str());
                 }
-                corner_type[k] = CornerType::Stop;
+                corner_type[k] = CornerType::STOP;
                 blend_r[k] = 0.0;
                 V_blend_cap[k] = 0.0;
                 collapsed = true;
@@ -358,7 +358,7 @@ std::shared_ptr<PlannedTrajectoryData> plan(
     for (Eigen::Index k = 0; k < N - 1; ++k)
     {
         Eigen::VectorXd start_pos = waypoints.row(k).transpose();
-        if (corner_type[k] == CornerType::Blend)
+        if (corner_type[k] == CornerType::BLEND)
         {
             start_pos = waypoints.row(k).transpose() + blend_r[k] * u_dir.row(k).transpose();
         }
@@ -369,7 +369,7 @@ std::shared_ptr<PlannedTrajectoryData> plan(
             double v0 = U(k);
             double v1 = U(k + 1);
             Segment seg;
-            seg.type = SegmentType::Linear;
+            seg.type = SegmentType::LINEAR;
             seg.linear.u_dir = u_dir.row(k).transpose();
             seg.linear.q0 = start_pos;
             seg.linear.v0 = v0;
@@ -398,13 +398,13 @@ std::shared_ptr<PlannedTrajectoryData> plan(
         }
 
         Eigen::Index kk = k + 1;
-        if (kk < N - 1 && corner_type[kk] == CornerType::Blend)
+        if (kk < N - 1 && corner_type[kk] == CornerType::BLEND)
         {
             double r_b = blend_r[kk];
             double V = U(kk);
             double T_b = 2.0 * r_b / V;
             Segment seg;
-            seg.type = SegmentType::Blend;
+            seg.type = SegmentType::BLEND;
             seg.blend.shape = effective_blend_shape;
             seg.blend.duration = T_b;
             seg.blend.V = V;
@@ -418,7 +418,7 @@ std::shared_ptr<PlannedTrajectoryData> plan(
             // Deviation at the blend midpoint: (r/4)|d_out - d_in| for a
             // parabolic blend, (3r/16)|d_out - d_in| for a Hermite blend.
             const double delta_norm = (u_dir.row(kk) - u_dir.row(k)).norm();
-            const double factor = (effective_blend_shape == BlendShape::Parabolic) ? 0.25 : 3.0 / 16.0;
+            const double factor = (effective_blend_shape == BlendShape::PARABOLIC) ? 0.25 : 3.0 / 16.0;
             corner_deviation[kk] = factor * r_b * delta_norm;
             waypoint_time[kk] = t_cursor + T_b / 2.0;
             t_cursor += T_b;

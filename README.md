@@ -39,7 +39,7 @@ limits.j_max = (Eigen::VectorXd(2) << 20.0, 18.0).finished();
 
 justblend::GenerationOptions opts;
 opts.blend_radius = 0.15;
-opts.corner_handling = justblend::CornerHandling::Hybrid;
+opts.corner_handling = justblend::CornerHandling::HYBRID;
 
 justblend::SCurveTrajectoryGenerator gen(2);
 gen.setLimits(limits);

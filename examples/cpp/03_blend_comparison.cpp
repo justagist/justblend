@@ -27,7 +27,7 @@ void runOne(justblend::BlendShape shape)
 
     justblend::GenerationOptions opts;
     opts.blend_radius = 0.15;
-    opts.corner_handling = justblend::CornerHandling::Hybrid;
+    opts.corner_handling = justblend::CornerHandling::HYBRID;
     opts.blend_shape = shape;
 
     justblend::SCurveTrajectoryGenerator gen(3);
@@ -41,7 +41,7 @@ void runOne(justblend::BlendShape shape)
     {
         max_step = std::max(max_step, (dense.qdd.row(i) - dense.qdd.row(i - 1)).cwiseAbs().maxCoeff());
     }
-    const char* name = shape == justblend::BlendShape::Parabolic ? "parabolic" : "hermite";
+    const char* name = shape == justblend::BlendShape::PARABOLIC ? "parabolic" : "hermite";
     std::printf("%-9s  duration=%.4f s  max |Δqdd| between adjacent dt=2ms = %.4f\n", name, traj.duration(), max_step);
 }
 
@@ -49,7 +49,7 @@ void runOne(justblend::BlendShape shape)
 
 int main()
 {
-    runOne(justblend::BlendShape::Parabolic);
-    runOne(justblend::BlendShape::Hermite);
+    runOne(justblend::BlendShape::PARABOLIC);
+    runOne(justblend::BlendShape::HERMITE);
     return 0;
 }

@@ -28,7 +28,7 @@ TEST(BlendCap, ParabolicMatchesClosedForm)
     Eigen::VectorXd vmax = vec3(2.0, 2.0, 2.0);
     Eigen::VectorXd amax = vec3(3.0, 3.0, 3.0);
 
-    double V = blendVCap(d_in, d_out, r, vmax, amax, std::nullopt, BlendShape::Parabolic);
+    double V = blendVCap(d_in, d_out, r, vmax, amax, std::nullopt, BlendShape::PARABOLIC);
 
     // V_acc = sqrt(2 r * min(amax_i / |delta_d_i|))
     double V_acc = std::sqrt(2.0 * r * 3.0 / 1.0); // |delta_d| = 1 for each non-zero component
@@ -44,8 +44,8 @@ TEST(BlendCap, HermiteHasJerkCap)
     Eigen::VectorXd amax = vec3(3.0, 3.0, 3.0);
     Eigen::VectorXd jmax = vec3(20.0, 20.0, 20.0);
 
-    double V_no_jerk = blendVCap(d_in, d_out, r, vmax, amax, std::nullopt, BlendShape::Hermite);
-    double V_with_jerk = blendVCap(d_in, d_out, r, vmax, amax, jmax, BlendShape::Hermite);
+    double V_no_jerk = blendVCap(d_in, d_out, r, vmax, amax, std::nullopt, BlendShape::HERMITE);
+    double V_with_jerk = blendVCap(d_in, d_out, r, vmax, amax, jmax, BlendShape::HERMITE);
 
     EXPECT_LE(V_with_jerk, V_no_jerk + 1e-12);
 
@@ -61,7 +61,7 @@ TEST(BlendCap, HermiteHasJerkCap)
 TEST(BlendSample, ParabolicEndpointsMatch)
 {
     BlendSegmentData seg;
-    seg.shape = BlendShape::Parabolic;
+    seg.shape = BlendShape::PARABOLIC;
     seg.V = 0.5;
     seg.r = 0.1;
     seg.duration = 2.0 * seg.r / seg.V;
@@ -80,7 +80,7 @@ TEST(BlendSample, ParabolicEndpointsMatch)
 TEST(BlendSample, HermiteZeroAccelAtBoundaries)
 {
     BlendSegmentData seg;
-    seg.shape = BlendShape::Hermite;
+    seg.shape = BlendShape::HERMITE;
     seg.V = 0.5;
     seg.r = 0.1;
     seg.duration = 2.0 * seg.r / seg.V;

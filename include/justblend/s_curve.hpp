@@ -12,7 +12,7 @@ public:
     using TrajectoryGenerator::TrajectoryGenerator;
 
 protected:
-    BlendShape defaultBlendShape() const noexcept override { return BlendShape::Hermite; }
+    BlendShape defaultBlendShape() const noexcept override { return BlendShape::HERMITE; }
     bool useScurveProfile() const noexcept override { return true; }
     void validateLimitsDerived(const Limits& limits) const override;
 };

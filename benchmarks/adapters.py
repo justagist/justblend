@@ -34,7 +34,15 @@ class BenchResult:
 
 
 def _time_ms(fn, repeats: int = 3):
-    """Return (result of fn, best wall-clock ms over repeats)."""
+    """Times a zero-argument callable.
+
+    Args:
+        fn (callable): Callable to run and time.
+        repeats (int): Number of runs; the best time is kept.
+
+    Returns:
+        tuple: (result of the last call, best wall-clock time in ms).
+    """
     best = float("inf")
     out = None
     for _ in range(repeats):
@@ -45,7 +53,16 @@ def _time_ms(fn, repeats: int = 3):
 
 
 def _sample_ruckig_trajectories(trajs, dof: int, dt: float):
-    """Sample a list of chained ruckig trajectories on a uniform grid."""
+    """Samples chained ruckig trajectories on a uniform grid.
+
+    Args:
+        trajs (list): Ruckig Trajectory objects, executed back to back.
+        dof (int): Degrees of freedom.
+        dt (float): Sampling step [s].
+
+    Returns:
+        tuple: (total duration, t, q, qd, qdd) with arrays over the grid.
+    """
     durations = np.array([tr.duration for tr in trajs])
     starts = np.concatenate([[0.0], np.cumsum(durations)])
     total = float(starts[-1])
@@ -64,6 +81,17 @@ def _sample_ruckig_trajectories(trajs, dof: int, dt: float):
 
 
 def run_justblend(name, W, v_max, a_max, j_max, blend_radius, corner_handling, dt) -> BenchResult:
+    """Runs a justblend generator on the scenario.
+
+    Args:
+        name (str): Row label for the report.
+        W (np.ndarray): N x dof waypoint matrix.
+        v_max/a_max (np.ndarray): Per-axis velocity/acceleration limits.
+        j_max (np.ndarray | None): Per-axis jerk limits; None selects the trapezoidal generator.
+        blend_radius (float): Corner cut-back distance.
+        corner_handling (jb.CornerHandling): Corner mode.
+        dt (float): Sampling step [s].
+    """
     scurve = j_max is not None
     gen = (jb.SCurveTrajectoryGenerator if scurve else jb.TrapezoidalTrajectoryGenerator)(dim=W.shape[1])
     gen.set_limits(jb.Limits(v_max=v_max, a_max=a_max, j_max=j_max))
@@ -74,12 +102,16 @@ def run_justblend(name, W, v_max, a_max, j_max, blend_radius, corner_handling, d
 
 
 def run_ruckig_chained(name, W, v_max, a_max, j_max, dt) -> BenchResult:
-    """Community ruckig: per-axis time-optimal, rest-to-rest per segment.
+    """Chains community ruckig segments rest-to-rest per waypoint.
 
-    Intermediate-waypoint support is a ruckig Pro feature, so segments are
-    chained with a full stop at every waypoint (comparable to strict
-    corners). The path between waypoints is NOT constrained to the straight
-    line: each axis follows its own profile.
+    Per-axis time-optimal and comparable to strict corners, but the path
+    between waypoints is NOT constrained to the straight line.
+
+    Args:
+        name (str): Row label for the report.
+        W (np.ndarray): N x dof waypoint matrix.
+        v_max/a_max/j_max (np.ndarray): Per-axis limits.
+        dt (float): Sampling step [s].
     """
     from ruckig import InputParameter, Result, Ruckig
     from ruckig import Trajectory as RuckigTrajectory
@@ -109,12 +141,17 @@ def run_ruckig_chained(name, W, v_max, a_max, j_max, dt) -> BenchResult:
 
 
 def run_ruckig_waypoints(name, W, v_max, a_max, j_max, dt) -> BenchResult:
-    """Ruckig intermediate-waypoint mode: passes waypoints without stopping.
+    """Runs ruckig's intermediate-waypoint mode (no stops at waypoints).
 
-    Uses InputParameter.intermediate_positions. The community edition solves
-    this by calling ruckig's cloud API (Ruckig Pro solves it locally), so
-    generation time includes a network round trip and the scenario data
-    leaves the machine.
+    The community edition solves this via ruckig's cloud API (Ruckig Pro is
+    local), so generation time includes a network round trip and the
+    scenario data leaves the machine.
+
+    Args:
+        name (str): Row label for the report.
+        W (np.ndarray): N x dof waypoint matrix.
+        v_max/a_max/j_max (np.ndarray): Per-axis limits.
+        dt (float): Sampling step [s].
     """
     from ruckig import InputParameter, Result, Ruckig
     from ruckig import Trajectory as RuckigTrajectory
@@ -144,6 +181,15 @@ def run_ruckig_waypoints(name, W, v_max, a_max, j_max, dt) -> BenchResult:
 
 
 def _toppra_parametrize(path, v_max, a_max):
+    """Time-parametrizes a toppra path under velocity/acceleration limits.
+
+    Args:
+        path: A toppra interpolator over [0, 1].
+        v_max/a_max (np.ndarray): Per-axis limits.
+
+    Returns:
+        A sampled toppra joint trajectory.
+    """
     import toppra as ta
     import toppra.algorithm as algo
     import toppra.constraint as constraint
@@ -163,11 +209,15 @@ def _toppra_parametrize(path, v_max, a_max):
 
 
 def run_toppra_chained(name, W, v_max, a_max, dt) -> BenchResult:
-    """toppra per straight-line segment, rest-to-rest at every waypoint.
+    """Runs toppra per straight-line segment, rest-to-rest at every waypoint.
 
-    Traverses exactly the same path as justblend's strict-corner mode under
-    velocity/acceleration limits, and is time-optimal on it: a lower bound
-    for the trapezoidal strict-corner duration.
+    Traverses exactly the same path as justblend's strict-corner mode.
+
+    Args:
+        name (str): Row label for the report.
+        W (np.ndarray): N x dof waypoint matrix.
+        v_max/a_max (np.ndarray): Per-axis limits.
+        dt (float): Sampling step [s].
     """
     import toppra as ta
 
@@ -200,11 +250,16 @@ def run_toppra_chained(name, W, v_max, a_max, dt) -> BenchResult:
 
 
 def run_toppra_spline(name, W, v_max, a_max, dt) -> BenchResult:
-    """toppra on one cubic spline through all waypoints (no stops).
+    """Runs toppra on one cubic spline through all waypoints (no stops).
 
-    Passes exactly through every waypoint at speed; the path is smooth but
-    not the waypoint polyline, so it is the natural comparison for
-    justblend's blending modes.
+    Passes exactly through every waypoint at speed; the natural comparison
+    for justblend's blending modes.
+
+    Args:
+        name (str): Row label for the report.
+        W (np.ndarray): N x dof waypoint matrix.
+        v_max/a_max (np.ndarray): Per-axis limits.
+        dt (float): Sampling step [s].
     """
     import toppra as ta
 

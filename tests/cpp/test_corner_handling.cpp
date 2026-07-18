@@ -65,7 +65,7 @@ TEST_P(CornerHandlingScurveParam, BoundsAndEndpointsHold)
     }
 
     // For Hermite+SCurve, jerk should be bounded; finite-difference qdd.
-    if (shape == BlendShape::Hermite && r.q.rows() > 1)
+    if (shape == BlendShape::HERMITE && r.q.rows() > 1)
     {
         Eigen::MatrixXd qddd(r.qdd.rows() - 1, r.qdd.cols());
         for (Eigen::Index k = 0; k + 1 < r.qdd.rows(); ++k)
@@ -82,12 +82,12 @@ TEST_P(CornerHandlingScurveParam, BoundsAndEndpointsHold)
 INSTANTIATE_TEST_SUITE_P(
     All, CornerHandlingScurveParam,
     ::testing::Values(
-        std::make_tuple(CornerHandling::StrictCorners, BlendShape::Parabolic),
-        std::make_tuple(CornerHandling::StrictCorners, BlendShape::Hermite),
-        std::make_tuple(CornerHandling::Hybrid, BlendShape::Parabolic),
-        std::make_tuple(CornerHandling::Hybrid, BlendShape::Hermite),
-        std::make_tuple(CornerHandling::UseBlending, BlendShape::Parabolic),
-        std::make_tuple(CornerHandling::UseBlending, BlendShape::Hermite)
+        std::make_tuple(CornerHandling::STRICT_CORNERS, BlendShape::PARABOLIC),
+        std::make_tuple(CornerHandling::STRICT_CORNERS, BlendShape::HERMITE),
+        std::make_tuple(CornerHandling::HYBRID, BlendShape::PARABOLIC),
+        std::make_tuple(CornerHandling::HYBRID, BlendShape::HERMITE),
+        std::make_tuple(CornerHandling::USE_BLENDING, BlendShape::PARABOLIC),
+        std::make_tuple(CornerHandling::USE_BLENDING, BlendShape::HERMITE)
     )
 );
 
@@ -101,7 +101,7 @@ TEST(CornerHandling, TrapezoidalBoundsHold)
     gen.setLimits(L);
     GenerationOptions opts;
     opts.blend_radius = 0.15;
-    opts.corner_handling = CornerHandling::Hybrid;
+    opts.corner_handling = CornerHandling::HYBRID;
     gen.setOptions(opts);
 
     auto W = cornerWaypoints();
@@ -124,7 +124,7 @@ TEST(CornerHandling, UseBlendingRaisesWhenBlendRadiusUnusable)
     gen.setLimits(scurveLimits());
     GenerationOptions opts;
     opts.blend_radius = 1e-12;
-    opts.corner_handling = CornerHandling::UseBlending;
+    opts.corner_handling = CornerHandling::USE_BLENDING;
     gen.setOptions(opts);
 
     auto W = cornerWaypoints();
@@ -145,7 +145,7 @@ TEST(CornerHandling, PerCornerBlendRadii)
     GenerationOptions opts;
     opts.blend_radius = 999.0; // would-be scalar fallback, but we override
     opts.blend_radii = radii;
-    opts.corner_handling = CornerHandling::Hybrid;
+    opts.corner_handling = CornerHandling::HYBRID;
     gen.setOptions(opts);
 
     auto W = cornerWaypoints();
@@ -165,7 +165,7 @@ TEST(CornerHandling, BlendRadiiSizeOneBroadcasts)
     GenerationOptions opts;
     opts.blend_radius = 0.999;
     opts.blend_radii = (Eigen::VectorXd(1) << 0.12).finished();
-    opts.corner_handling = CornerHandling::Hybrid;
+    opts.corner_handling = CornerHandling::HYBRID;
     gen.setOptions(opts);
 
     auto W = cornerWaypoints();
@@ -183,7 +183,7 @@ TEST(CornerHandling, BlendRadiiWrongSizeThrows)
 
     GenerationOptions opts;
     opts.blend_radii = (Eigen::VectorXd(2) << 0.1, 0.1).finished(); // wrong size (need 3 or 1)
-    opts.corner_handling = CornerHandling::Hybrid;
+    opts.corner_handling = CornerHandling::HYBRID;
     gen.setOptions(opts);
 
     auto W = cornerWaypoints();
@@ -217,11 +217,11 @@ TEST(CornerHandling, ReversalCornerStopsInHybrid)
     gen.setLimits(L);
     GenerationOptions opts;
     opts.blend_radius = 0.1;
-    opts.corner_handling = CornerHandling::Hybrid;
+    opts.corner_handling = CornerHandling::HYBRID;
     gen.setOptions(opts);
 
     auto traj = gen.generate(W);
-    EXPECT_EQ(traj.cornerTypes()[1], CornerType::Stop);
+    EXPECT_EQ(traj.cornerTypes()[1], CornerType::STOP);
 
     // Both legs are identical, so the stop is at half the duration and the
     // trajectory passes exactly through the reversal waypoint at zero speed.
@@ -244,7 +244,7 @@ TEST(CornerHandling, ReversalCornerThrowsInUseBlending)
     gen.setLimits(L);
     GenerationOptions opts;
     opts.blend_radius = 0.1;
-    opts.corner_handling = CornerHandling::UseBlending;
+    opts.corner_handling = CornerHandling::USE_BLENDING;
     gen.setOptions(opts);
 
     EXPECT_THROW(gen.generate(W), ValidationError);
@@ -266,13 +266,13 @@ TEST(CornerHandling, HybridCollapseRevertsToStop)
     gen.setLimits(L);
     GenerationOptions opts;
     opts.blend_radius = 0.02;
-    opts.corner_handling = CornerHandling::Hybrid;
+    opts.corner_handling = CornerHandling::HYBRID;
     gen.setOptions(opts);
 
     auto traj = gen.generate(W);
     auto types = traj.cornerTypes();
     EXPECT_GE(types.size(), 3u);
-    EXPECT_TRUE(types[1] == CornerType::Stop || types[1] == CornerType::Blend);
+    EXPECT_TRUE(types[1] == CornerType::STOP || types[1] == CornerType::BLEND);
     // sample at endpoints -> q matches
     auto s0 = traj.sample(0.0);
     auto s1 = traj.sample(traj.duration());

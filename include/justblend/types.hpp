@@ -25,29 +25,29 @@ struct Limits
 
 enum class BlendShape
 {
-    Parabolic,
-    Hermite,
+    PARABOLIC,
+    HERMITE,
 };
 
 enum class CornerHandling
 {
-    StrictCorners,
-    UseBlending,
-    Hybrid,
+    STRICT_CORNERS,
+    USE_BLENDING,
+    HYBRID,
 };
 
 enum class CornerType
 {
-    Endpoint,
-    Pass,
-    Stop,
-    Blend,
+    ENDPOINT,
+    PASS,
+    STOP,
+    BLEND,
 };
 
 enum class SegmentType
 {
-    Linear,
-    Blend,
+    LINEAR,
+    BLEND,
 };
 
 struct GenerationOptions
@@ -60,7 +60,7 @@ struct GenerationOptions
     // interior corner, in waypoint order). Entries must be > 0.
     std::optional<Eigen::VectorXd> blend_radii;
 
-    CornerHandling corner_handling = CornerHandling::StrictCorners;
+    CornerHandling corner_handling = CornerHandling::STRICT_CORNERS;
     std::optional<BlendShape> blend_shape;
 
     // Uniform limit scaling in (0, 1] applied at generation time (mirrors
@@ -80,17 +80,17 @@ struct Sample
 
 struct SegmentInfo
 {
-    SegmentType type = SegmentType::Linear;
+    SegmentType type = SegmentType::LINEAR;
     double duration = 0.0;
 
-    // Linear-segment fields (valid when type == Linear)
+    // Linear-segment fields (valid when type == LINEAR)
     double v0 = 0.0;
     double length = 0.0;
     Eigen::VectorXd u_dir;
     Eigen::VectorXd q0;
 
-    // Blend-segment fields (valid when type == Blend)
-    BlendShape blend_shape = BlendShape::Parabolic;
+    // Blend-segment fields (valid when type == BLEND)
+    BlendShape blend_shape = BlendShape::PARABOLIC;
     double V = 0.0;
     double r = 0.0;
     Eigen::VectorXd d_in;

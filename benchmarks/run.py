@@ -45,6 +45,7 @@ class Scenario:
 
 
 def scenarios() -> list[Scenario]:
+    """Benchmark scenarios: the fixture datasets plus a seeded 6-dof case."""
     out = []
     with open(DATA) as f:
         for name, ds in json.load(f).items():
@@ -73,7 +74,12 @@ def scenarios() -> list[Scenario]:
 
 
 def polyline_deviation(q: np.ndarray, W: np.ndarray) -> float:
-    """Max distance from the sampled path to the waypoint polyline."""
+    """Max distance from the sampled path to the waypoint polyline.
+
+    Args:
+        q (np.ndarray): M x dof sampled positions.
+        W (np.ndarray): N x dof waypoint matrix defining the polyline.
+    """
     best = np.full(q.shape[0], np.inf)
     for a, b in zip(W[:-1], W[1:]):
         ab = b - a
@@ -83,13 +89,27 @@ def polyline_deviation(q: np.ndarray, W: np.ndarray) -> float:
 
 
 def waypoint_miss(q: np.ndarray, W: np.ndarray) -> float:
-    """Worst closest-approach distance to any interior waypoint."""
+    """Worst closest-approach distance to any interior waypoint.
+
+    Args:
+        q (np.ndarray): M x dof sampled positions.
+        W (np.ndarray): N x dof waypoint matrix.
+    """
     if W.shape[0] <= 2:
         return 0.0
     return max(float(np.linalg.norm(q - wp, axis=1).min()) for wp in W[1:-1])
 
 
 def limit_ratios(r: BenchResult, sc: Scenario):
+    """Peak per-axis velocity/acceleration/jerk ratios against the limits.
+
+    Args:
+        r (BenchResult): Sampled trajectory to evaluate.
+        sc (Scenario): Scenario supplying the limits.
+
+    Returns:
+        tuple: (vel, acc, jerk) ratios; jerk is NaN without jerk limits.
+    """
     vel = float(np.max(np.abs(r.qd) / sc.v_max))
     acc = float(np.max(np.abs(r.qdd) / sc.a_max))
     jerk = float("nan")
@@ -100,6 +120,12 @@ def limit_ratios(r: BenchResult, sc: Scenario):
 
 
 def run_scenario(sc: Scenario) -> list[BenchResult]:
+    """Runs every benchmark method on one scenario.
+
+    Args:
+        sc (Scenario): Scenario to benchmark; failed/unavailable back-ends
+            yield placeholder rows instead of aborting.
+    """
     import justblend as jb
 
     results = []
@@ -133,7 +159,13 @@ def run_scenario(sc: Scenario) -> list[BenchResult]:
 
 
 def plot_scenario(sc: Scenario, results: list[BenchResult], out_png: str) -> None:
-    """One figure per scenario: path overlay, durations, generation times."""
+    """Renders one figure: path overlay, durations, generation times.
+
+    Args:
+        sc (Scenario): Scenario the results belong to.
+        results (list[BenchResult]): Rows from run_scenario.
+        out_png (str): Output image path.
+    """
     import matplotlib
 
     matplotlib.use("Agg")
@@ -246,6 +278,11 @@ NOTES = """\
 
 
 def render(dt: float) -> str:
+    """Runs all scenarios and renders the full markdown report plus plots.
+
+    Args:
+        dt (float): Sampling step for the metrics [s].
+    """
     os.makedirs(PLOTS_DIR, exist_ok=True)
     lines = [INSTRUCTIONS]
     for sc in scenarios():
