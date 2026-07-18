@@ -11,23 +11,23 @@ ArrayLike = npt.NDArray[np.float64]
 class ValidationError(ValueError): ...
 
 class BlendShape(Enum):
-    PARABOLIC: BlendShape
-    HERMITE: BlendShape
+    PARABOLIC = 0
+    HERMITE = 1
 
 class CornerHandling(Enum):
-    STRICT_CORNERS: CornerHandling
-    USE_BLENDING: CornerHandling
-    HYBRID: CornerHandling
+    STRICT_CORNERS = 0
+    USE_BLENDING = 1
+    HYBRID = 2
 
 class CornerType(Enum):
-    ENDPOINT: CornerType
-    PASS: CornerType
-    STOP: CornerType
-    BLEND: CornerType
+    ENDPOINT = 0
+    PASS = 1
+    STOP = 2
+    BLEND = 3
 
 class SegmentType(Enum):
-    LINEAR: SegmentType
-    BLEND: SegmentType
+    LINEAR = 0
+    BLEND = 1
 
 class Limits:
     v_max: ArrayLike
