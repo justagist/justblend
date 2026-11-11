@@ -132,4 +132,43 @@ TEST(Validation, NonFiniteStretchDurationRejected)
     const auto traj = makeGenerator().generate(cornerWaypoints());
     EXPECT_THROW(traj.stretchedTo(kNaN), ValidationError);
     EXPECT_THROW(traj.stretchedTo(kInf), ValidationError);
+    // Finite, but the time scale cubed overflows.
+    EXPECT_THROW(traj.stretchedTo(1e200), ValidationError);
+}
+
+TEST(Validation, StretchTargetWithinRoundingBelowDurationDoesNotSpeedUp)
+{
+    const auto traj = makeGenerator().generate(cornerWaypoints());
+    const double T = traj.duration();
+    const auto same = traj.stretchedTo(T - 5e-13);
+    EXPECT_EQ(same.duration(), T);
+    EXPECT_EQ(same.junctionSpeeds(), traj.junctionSpeeds());
+}
+
+TEST(Validation, SampleCountAtIndexLimitRejected)
+{
+    TrapezoidalTrajectoryGenerator gen(1);
+    Limits L;
+    L.v_max = Eigen::VectorXd::Constant(1, 1.0);
+    L.a_max = Eigen::VectorXd::Constant(1, 2.0);
+    gen.setLimits(L);
+    Eigen::MatrixXd W(2, 1);
+    W << 0.0, 1.0;
+    const auto traj = gen.generate(W);
+    // duration / dt is exactly 2^63, one past the largest index.
+    EXPECT_THROW(traj.samples(std::ldexp(traj.duration(), -63)), ValidationError);
+}
+
+TEST(Validation, SegmentTooShortForItsSpeedRejected)
+{
+    // The middle leg is crossed at full speed in under the shortest phase
+    // duration kept, so it would have no duration at all.
+    TrapezoidalTrajectoryGenerator gen(1);
+    Limits L;
+    L.v_max = Eigen::VectorXd::Constant(1, 100.0);
+    L.a_max = Eigen::VectorXd::Constant(1, 1e4);
+    gen.setLimits(L);
+    Eigen::MatrixXd W(4, 1);
+    W << 0.0, 1.0, 1.0 + 1e-11, 2.0;
+    EXPECT_THROW(gen.generate(W), ValidationError);
 }

@@ -181,7 +181,13 @@ Trajectory Trajectory::stretchedTo(double target_duration) const
     {
         throw ValidationError("stretchedTo: target duration must be finite and >= the current duration.");
     }
-    const double s = target_duration / T;
+    // A target within rounding below the current duration counts as equal, so
+    // the trajectory is never sped up.
+    const double s = std::max(target_duration / T, 1.0);
+    if (!std::isfinite(s * s * s))
+    {
+        throw ValidationError("stretchedTo: target duration is too large for the current duration.");
+    }
 
     // Uniform time dilation t -> s*t: positions unchanged, velocities scale
     // by 1/s, accelerations by 1/s^2, jerks by 1/s^3. Limits stay satisfied.
@@ -222,7 +228,7 @@ Trajectory Trajectory::stretchedTo(double target_duration) const
     for (auto& t : d->waypoint_times)
         t *= s;
     d->junction_speeds /= s;
-    d->total_duration = target_duration;
+    d->total_duration = std::max(target_duration, T);
     return Trajectory(std::move(d));
 }
 BlendShape Trajectory::blendShape() const noexcept { return data_ ? data_->blend_shape : BlendShape::PARABOLIC; }
@@ -264,7 +270,8 @@ Trajectory::SamplesResult Trajectory::samples(double dt) const
     const double T = data_->total_duration;
     const double steps = std::floor(T / dt);
     const auto max_rows = std::numeric_limits<Eigen::Index>::max() / static_cast<Eigen::Index>(data_->dim);
-    if (!(steps + 2.0 <= static_cast<double>(max_rows)))
+    // Strict: max_rows rounds up when converted, so equality may already be out of range.
+    if (!(steps + 2.0 < static_cast<double>(max_rows)))
         throw ValidationError("samples(dt): dt is too small for the trajectory duration.");
     const auto n_steps = static_cast<Eigen::Index>(steps);
 

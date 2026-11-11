@@ -88,8 +88,12 @@ def test_parity(path):
         # Trapezoidal acceleration is piecewise constant. A sample exactly on a
         # step reports the value before the step (after it at t = 0), where the
         # reference reports the value after it and zero at both ends. Compare
-        # those samples with the neighbouring reference sample instead.
-        on_step = np.flatnonzero(np.any(np.abs(out.qdd - ref_qdd) > PARITY_TOL, axis=1))
+        # those samples with the neighbouring reference sample instead. A
+        # mismatch anywhere else still fails.
+        is_step = np.ones(len(ref_qdd), dtype=bool)
+        is_step[1:-1] = np.any(np.abs(np.diff(ref_qdd, axis=0)) > PARITY_TOL, axis=1)[:-1]
+        mismatch = np.any(np.abs(out.qdd - ref_qdd) > PARITY_TOL, axis=1)
+        on_step = np.flatnonzero(is_step & mismatch)
         ref_qdd[on_step] = ref_qdd[np.where(on_step == 0, 1, on_step - 1)]
     err_qdd = float(np.max(np.abs(out.qdd - ref_qdd)))
     assert err_q <= PARITY_TOL, f"q diff {err_q}"

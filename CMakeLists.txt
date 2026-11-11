@@ -112,7 +112,8 @@ if(NOT SKBUILD)
     write_basic_package_version_file(
         "${CMAKE_CURRENT_BINARY_DIR}/justblendConfigVersion.cmake"
         VERSION ${PROJECT_VERSION}
-        COMPATIBILITY SameMajorVersion
+        # Minor releases may break the API until 1.0.
+        COMPATIBILITY SameMinorVersion
     )
     install(FILES
         "${CMAKE_CURRENT_BINARY_DIR}/justblendConfig.cmake"

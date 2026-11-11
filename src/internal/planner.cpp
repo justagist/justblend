@@ -444,11 +444,17 @@ std::shared_ptr<PlannedTrajectoryData> plan(
     }
     out->total_duration = out->cumulative_t.back();
 
-    // Finite inputs can still overflow or underflow on the way here.
-    if (out->segments.empty() || !std::isfinite(out->total_duration) || !(out->total_duration > 0.0))
+    // Finite inputs can still overflow or underflow on the way here. A
+    // segment too short for its speed loses every phase and has no duration.
+    bool valid = !out->segments.empty() && std::isfinite(out->total_duration);
+    for (const auto& seg : out->segments)
     {
-        throw ValidationError("Generation produced an empty or non-finite trajectory; check the scale of the "
-                              "waypoints and limits.");
+        valid = valid && seg.duration > 0.0;
+    }
+    if (!valid)
+    {
+        throw ValidationError("Generation produced an empty trajectory or a segment with a zero or non-finite "
+                              "duration; check the scale of the waypoints and limits.");
     }
 
     out->segment_infos.reserve(out->segments.size());

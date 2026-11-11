@@ -22,6 +22,11 @@ Notable changes to justblend. The format follows
   requested times.
 - `samples(dt)` rejects a step too small for the sample count to be
   represented, and includes the final time when `dt` far exceeds the duration.
+- Generation raises `ValidationError` when a segment would have zero duration,
+  for example a very short collinear segment crossed at high speed.
+- `stretchedTo` rejects a target so large that the time scale overflows, and
+  never speeds a trajectory up when the target is within rounding below the
+  current duration.
 - The `USE_BLENDING` error for a radius too small to blend names the actual
   cause.
 - `CMAKE_BUILD_TYPE` is no longer forced when justblend is built as a
@@ -35,6 +40,8 @@ Notable changes to justblend. The format follows
   trapezoid phase boundary reports the earlier phase.
 - The last time returned by `samples(dt)` is exactly `duration()`.
 - `TrajectoryGenerator::generate` is `const`, and generators are copyable.
+- `find_package(justblend X.Y)` only accepts the same minor version until 1.0,
+  since minor releases may break the API.
 - `__version__` comes from the CMake project version.
 - Python 3.10 is the minimum supported version.
 
