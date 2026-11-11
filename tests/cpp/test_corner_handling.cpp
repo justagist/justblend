@@ -252,30 +252,34 @@ TEST(CornerHandling, ReversalCornerThrowsInUseBlending)
 
 TEST(CornerHandling, HybridCollapseRevertsToStop)
 {
-    // Tight V_blend cap that forward/backward pass forces to ~0; hybrid should
-    // revert the blend to a stop and re-run, succeeding.
+    // The first leg is so short that the speed reachable before the blend
+    // falls below the collapse threshold, so the blend cannot be kept.
     Eigen::MatrixXd W(3, 2);
-    W << 0.0, 0.0, 0.05, 0.0, 0.05, 0.05;
+    W << 0.0, 0.0, 4e-8, 0.0, 4e-8, 1.0;
 
     Limits L;
     L.v_max = (Eigen::VectorXd(2) << 1.0, 1.0).finished();
     L.a_max = (Eigen::VectorXd(2) << 1.0, 1.0).finished();
-    L.j_max = (Eigen::VectorXd(2) << 10.0, 10.0).finished();
+    L.j_max = (Eigen::VectorXd(2) << 1e-3, 1e-3).finished();
 
     SCurveTrajectoryGenerator gen(2);
     gen.setLimits(L);
     GenerationOptions opts;
     opts.blend_radius = 0.02;
+    opts.corner_handling = CornerHandling::USE_BLENDING;
+    gen.setOptions(opts);
+    EXPECT_THROW(gen.generate(W), ValidationError);
+
     opts.corner_handling = CornerHandling::HYBRID;
     gen.setOptions(opts);
-
     auto traj = gen.generate(W);
-    auto types = traj.cornerTypes();
-    EXPECT_GE(types.size(), 3u);
-    EXPECT_TRUE(types[1] == CornerType::STOP || types[1] == CornerType::BLEND);
-    // sample at endpoints -> q matches
-    auto s0 = traj.sample(0.0);
+    ASSERT_EQ(traj.cornerTypes().size(), 3u);
+    EXPECT_EQ(traj.cornerTypes()[1], CornerType::STOP);
+    EXPECT_EQ(traj.blendRadii()[1], 0.0);
+
+    auto at_corner = traj.sample(traj.waypointTimes()[1]);
+    EXPECT_NEAR((at_corner.q - W.row(1).transpose()).norm(), 0.0, 1e-12);
+    EXPECT_NEAR(at_corner.qd.norm(), 0.0, 1e-12);
     auto s1 = traj.sample(traj.duration());
-    EXPECT_NEAR((s0.q - W.row(0).transpose()).norm(), 0.0, 1e-12);
-    EXPECT_NEAR((s1.q - W.row(W.rows() - 1).transpose()).norm(), 0.0, 1e-12);
+    EXPECT_NEAR((s1.q - W.row(2).transpose()).norm(), 0.0, 1e-12);
 }

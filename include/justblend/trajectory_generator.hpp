@@ -20,8 +20,8 @@ public:
     explicit TrajectoryGenerator(std::size_t dim);
     virtual ~TrajectoryGenerator() = default;
 
-    TrajectoryGenerator(const TrajectoryGenerator&) = delete;
-    TrajectoryGenerator& operator=(const TrajectoryGenerator&) = delete;
+    TrajectoryGenerator(const TrajectoryGenerator&) = default;
+    TrajectoryGenerator& operator=(const TrajectoryGenerator&) = default;
     TrajectoryGenerator(TrajectoryGenerator&&) = default;
     TrajectoryGenerator& operator=(TrajectoryGenerator&&) = default;
 
@@ -33,7 +33,7 @@ public:
     /// @param v_start Tangential start speed along the first segment direction.
     /// @param v_end Tangential end speed along the last segment direction. Both
     /// speeds must be feasible under the (scaled) limits or ValidationError is thrown.
-    Trajectory generate(const Eigen::MatrixXd& waypoints, double v_start = 0.0, double v_end = 0.0);
+    Trajectory generate(const Eigen::MatrixXd& waypoints, double v_start = 0.0, double v_end = 0.0) const;
 
     std::size_t dim() const noexcept { return dim_; }
     bool limitsSet() const noexcept { return limits_.has_value(); }

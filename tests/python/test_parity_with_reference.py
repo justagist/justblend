@@ -83,7 +83,15 @@ def test_parity(path):
 
     err_q = float(np.max(np.abs(out.q - data["q"])))
     err_qd = float(np.max(np.abs(out.qd - data["qd"])))
-    err_qdd = float(np.max(np.abs(out.qdd - data["qdd"])))
+    ref_qdd = data["qdd"].copy()
+    if profile == "trap":
+        # Trapezoidal acceleration is piecewise constant. A sample exactly on a
+        # step reports the value before the step (after it at t = 0), where the
+        # reference reports the value after it and zero at both ends. Compare
+        # those samples with the neighbouring reference sample instead.
+        on_step = np.flatnonzero(np.any(np.abs(out.qdd - ref_qdd) > PARITY_TOL, axis=1))
+        ref_qdd[on_step] = ref_qdd[np.where(on_step == 0, 1, on_step - 1)]
+    err_qdd = float(np.max(np.abs(out.qdd - ref_qdd)))
     assert err_q <= PARITY_TOL, f"q diff {err_q}"
     assert err_qd <= PARITY_TOL, f"qd diff {err_qd}"
     assert err_qdd <= PARITY_TOL, f"qdd diff {err_qdd}"

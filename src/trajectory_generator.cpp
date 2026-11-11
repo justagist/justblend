@@ -1,5 +1,7 @@
 #include "justblend/trajectory_generator.hpp"
 
+#include <cmath>
+
 #include "internal/planner.hpp"
 #include "internal/segment.hpp"
 
@@ -33,9 +35,9 @@ void TrajectoryGenerator::setLimits(const Limits& limits)
 
 void TrajectoryGenerator::setOptions(const GenerationOptions& opts)
 {
-    if (!(opts.blend_radius > 0.0))
+    if (!(opts.blend_radius > 0.0) || !std::isfinite(opts.blend_radius))
     {
-        throw ValidationError("setOptions: blend_radius must be > 0.");
+        throw ValidationError("setOptions: blend_radius must be finite and > 0.");
     }
     if (opts.blend_radii.has_value())
     {
@@ -43,9 +45,9 @@ void TrajectoryGenerator::setOptions(const GenerationOptions& opts)
         {
             throw ValidationError("setOptions: blend_radii cannot be empty.");
         }
-        if ((opts.blend_radii->array() <= 0.0).any())
+        if (!opts.blend_radii->allFinite() || (opts.blend_radii->array() <= 0.0).any())
         {
-            throw ValidationError("setOptions: every blend_radii entry must be > 0.");
+            throw ValidationError("setOptions: every blend_radii entry must be finite and > 0.");
         }
     }
     if (!(opts.velocity_scaling_factor > 0.0) || opts.velocity_scaling_factor > 1.0)
@@ -68,21 +70,21 @@ const Limits& TrajectoryGenerator::limits() const
 
 void TrajectoryGenerator::validateLimitsBase(const Limits& limits) const
 {
-    if ((limits.v_max.array() <= 0.0).any())
+    if (!limits.v_max.allFinite() || (limits.v_max.array() <= 0.0).any())
     {
-        throw ValidationError("v_max entries must be strictly positive.");
+        throw ValidationError("v_max entries must be finite and strictly positive.");
     }
-    if ((limits.a_max.array() <= 0.0).any())
+    if (!limits.a_max.allFinite() || (limits.a_max.array() <= 0.0).any())
     {
-        throw ValidationError("a_max entries must be strictly positive.");
+        throw ValidationError("a_max entries must be finite and strictly positive.");
     }
-    if (limits.j_max.has_value() && (limits.j_max->array() <= 0.0).any())
+    if (limits.j_max.has_value() && (!limits.j_max->allFinite() || (limits.j_max->array() <= 0.0).any()))
     {
-        throw ValidationError("j_max entries must be strictly positive.");
+        throw ValidationError("j_max entries must be finite and strictly positive.");
     }
 }
 
-Trajectory TrajectoryGenerator::generate(const Eigen::MatrixXd& waypoints, double v_start, double v_end)
+Trajectory TrajectoryGenerator::generate(const Eigen::MatrixXd& waypoints, double v_start, double v_end) const
 {
     if (!limits_.has_value())
         throw ValidationError("Limits must be set before calling generate().");

@@ -14,6 +14,8 @@ PYBIND11_MODULE(_core, m)
 {
     m.doc() = "justblend: closed-form N-dimensional trajectory generator (C++ core)";
 
+    m.attr("__version__") = JUSTBLEND_VERSION;
+
     py::register_exception<ValidationError>(m, "ValidationError", PyExc_ValueError);
 
     py::enum_<BlendShape>(m, "BlendShape")
@@ -51,15 +53,8 @@ PYBIND11_MODULE(_core, m)
         .def_readwrite("a_max", &Limits::a_max)
         .def_readwrite("j_max", &Limits::j_max)
         .def(
-            "__repr__",
-            [](const Limits& l)
-            {
-                std::string s = "Limits(v_max=..., a_max=...";
-                if (l.j_max.has_value())
-                    s += ", j_max=...";
-                s += ")";
-                return s;
-            }
+            "__repr__", [](const Limits& l)
+            { return py::str("Limits(v_max={}, a_max={}, j_max={})").format(l.v_max, l.a_max, l.j_max); }
         );
 
     py::class_<GenerationOptions>(m, "GenerationOptions")
@@ -88,7 +83,19 @@ PYBIND11_MODULE(_core, m)
         .def_readwrite("corner_handling", &GenerationOptions::corner_handling)
         .def_readwrite("blend_shape", &GenerationOptions::blend_shape)
         .def_readwrite("velocity_scaling_factor", &GenerationOptions::velocity_scaling_factor)
-        .def_readwrite("acceleration_scaling_factor", &GenerationOptions::acceleration_scaling_factor);
+        .def_readwrite("acceleration_scaling_factor", &GenerationOptions::acceleration_scaling_factor)
+        .def(
+            "__repr__",
+            [](const GenerationOptions& o)
+            {
+                return py::str("GenerationOptions(blend_radius={}, blend_radii={}, corner_handling={}, blend_shape={}, "
+                               "velocity_scaling_factor={}, acceleration_scaling_factor={})")
+                    .format(
+                        o.blend_radius, o.blend_radii, o.corner_handling, o.blend_shape, o.velocity_scaling_factor,
+                        o.acceleration_scaling_factor
+                    );
+            }
+        );
 
     py::class_<Sample>(m, "Sample")
         .def_readonly("t", &Sample::t)
@@ -112,7 +119,11 @@ PYBIND11_MODULE(_core, m)
         .def_readonly("r", &SegmentInfo::r)
         .def_readonly("d_in", &SegmentInfo::d_in)
         .def_readonly("d_out", &SegmentInfo::d_out)
-        .def_readonly("q_start", &SegmentInfo::q_start);
+        .def_readonly("q_start", &SegmentInfo::q_start)
+        .def(
+            "__repr__",
+            [](const SegmentInfo& s) { return py::str("SegmentInfo(type={}, duration={})").format(s.type, s.duration); }
+        );
 
     py::class_<Trajectory::SamplesResult>(m, "SamplesResult")
         .def_readonly("t", &Trajectory::SamplesResult::t)
@@ -142,7 +153,14 @@ PYBIND11_MODULE(_core, m)
         .def("corner_handling", &Trajectory::cornerHandling)
         .def("num_segments", &Trajectory::numSegments)
         .def("segments", &Trajectory::segments, py::return_value_policy::reference_internal)
-        .def("empty", &Trajectory::empty);
+        .def("empty", &Trajectory::empty)
+        .def(
+            "__repr__",
+            [](const Trajectory& t) {
+                return py::str("Trajectory(dim={}, duration={}, num_segments={})")
+                    .format(t.dim(), t.duration(), t.numSegments());
+            }
+        );
 
     py::class_<TrajectoryGenerator>(m, "TrajectoryGenerator")
         .def("set_limits", &TrajectoryGenerator::setLimits, py::arg("limits"))
@@ -153,8 +171,9 @@ PYBIND11_MODULE(_core, m)
         )
         .def("dim", &TrajectoryGenerator::dim)
         .def("limits_set", &TrajectoryGenerator::limitsSet)
-        .def("limits", &TrajectoryGenerator::limits, py::return_value_policy::reference_internal)
-        .def("options", &TrajectoryGenerator::options, py::return_value_policy::reference_internal);
+        // Copies, so edits to the returned objects cannot bypass the validating setters.
+        .def("limits", [](const TrajectoryGenerator& g) { return g.limits(); })
+        .def("options", [](const TrajectoryGenerator& g) { return g.options(); });
 
     py::class_<TrapezoidalTrajectoryGenerator, TrajectoryGenerator>(m, "TrapezoidalTrajectoryGenerator")
         .def(py::init<std::size_t>(), py::arg("dim"));

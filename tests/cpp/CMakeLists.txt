@@ -11,10 +11,7 @@ endif()
 function(jb_add_cpp_test name)
     add_executable(${name} ${ARGN})
     target_link_libraries(${name} PRIVATE justblend GTest::gtest GTest::gtest_main)
-    target_include_directories(${name} PRIVATE
-        ${CMAKE_SOURCE_DIR}/include
-        ${CMAKE_SOURCE_DIR}/src
-    )
+    target_include_directories(${name} PRIVATE ${PROJECT_SOURCE_DIR}/src)
     add_test(NAME ${name} COMMAND ${name})
 endfunction()
 
@@ -24,3 +21,5 @@ jb_add_cpp_test(test_blends test_blends.cpp)
 jb_add_cpp_test(test_corner_handling test_corner_handling.cpp)
 jb_add_cpp_test(test_sampling test_sampling.cpp)
 jb_add_cpp_test(test_trajectory_features test_trajectory_features.cpp)
+jb_add_cpp_test(test_validation test_validation.cpp)
+jb_add_cpp_test(test_properties test_properties.cpp)

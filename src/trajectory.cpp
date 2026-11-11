@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <stdexcept>
 
 #include "internal/blend.hpp"
@@ -23,7 +24,7 @@ std::size_t findSegmentIndex(const internal::PlannedTrajectoryData& d, double t)
         return 0;
     if (t >= d.total_duration)
         return d.segments.size() - 1;
-    // Right-continuous at segment boundaries: t == cumulative_t[j] belongs to segment j-1.
+    // Left-continuous at segment boundaries: t == cumulative_t[j] belongs to segment j-1.
     auto it = std::lower_bound(d.cumulative_t.begin() + 1, d.cumulative_t.end(), t);
     std::size_t j = static_cast<std::size_t>(std::distance(d.cumulative_t.begin(), it));
     if (j == 0)
@@ -68,7 +69,9 @@ void applyEndpointSnap(
 {
     // Boundary velocities follow the (possibly nonzero) junction speeds along
     // the first / last segment direction; first and last segments are always
-    // linear (endpoints are never blended).
+    // linear (endpoints are never blended). Acceleration is zero at both ends
+    // of an S-curve; a trapezoid starts and ends at its acceleration limit, so
+    // its computed value is kept.
     if (is_start)
     {
         q = d.waypoints.row(0).transpose();
@@ -77,7 +80,8 @@ void applyEndpointSnap(
         {
             qd = d.junction_speeds(0) * d.segments.front().linear.u_dir;
         }
-        qdd.setZero();
+        if (d.is_scurve)
+            qdd.setZero();
     }
     if (is_end)
     {
@@ -87,8 +91,29 @@ void applyEndpointSnap(
         {
             qd = d.junction_speeds(d.junction_speeds.size() - 1) * d.segments.back().linear.u_dir;
         }
-        qdd.setZero();
+        if (d.is_scurve)
+            qdd.setZero();
     }
+}
+
+/// @brief Evaluate the trajectory at one time. Single and batch sampling both
+/// go through here, so they agree at segment boundaries.
+/// @param d Planned trajectory data.
+/// @param t Query time; clamped to [0, total duration].
+/// @param q Position output, sized to the trajectory dimension.
+/// @param qd Velocity output, sized to the trajectory dimension.
+/// @param qdd Acceleration output, sized to the trajectory dimension.
+/// @return The clamped time.
+double sampleAt(
+    const internal::PlannedTrajectoryData& d, double t, Eigen::VectorXd& q, Eigen::VectorXd& qd, Eigen::VectorXd& qdd
+)
+{
+    const double t_clamped = std::clamp(t, 0.0, d.total_duration);
+    const std::size_t idx = findSegmentIndex(d, t_clamped);
+    const auto& seg = d.segments[idx];
+    sampleAtSegment(seg, std::min(t_clamped - d.cumulative_t[idx], seg.duration), q, qd, qdd);
+    applyEndpointSnap(d, q, qd, qdd, t_clamped == 0.0, t_clamped == d.total_duration);
+    return t_clamped;
 }
 
 } // namespace
@@ -152,9 +177,9 @@ Trajectory Trajectory::stretchedTo(double target_duration) const
     if (!data_)
         throw std::logic_error("Trajectory is empty.");
     const double T = data_->total_duration;
-    if (!(target_duration > 0.0) || target_duration + 1e-12 < T)
+    if (!(target_duration > 0.0) || !std::isfinite(target_duration) || target_duration + 1e-12 < T)
     {
-        throw ValidationError("stretchedTo: target duration must be >= the current duration.");
+        throw ValidationError("stretchedTo: target duration must be finite and >= the current duration.");
     }
     const double s = target_duration / T;
 
@@ -217,23 +242,15 @@ Sample Trajectory::sample(double t) const
 {
     if (!data_)
         throw std::logic_error("Trajectory is empty.");
+    if (std::isnan(t))
+        throw ValidationError("sample: t must not be NaN.");
     const auto& d = *data_;
-    double t_clamped = std::clamp(t, 0.0, d.total_duration);
-    std::size_t idx = findSegmentIndex(d, t_clamped);
-    double t_accum = d.cumulative_t[idx];
-    const auto& seg = d.segments[idx];
-    double t_local = std::min(t_clamped - t_accum, seg.duration);
 
     Sample s;
-    s.t = t_clamped;
     s.q.resize(d.dim);
     s.qd.resize(d.dim);
     s.qdd.resize(d.dim);
-    sampleAtSegment(seg, t_local, s.q, s.qd, s.qdd);
-
-    const bool is_start = (t_clamped == 0.0);
-    const bool is_end = (t_clamped == d.total_duration);
-    applyEndpointSnap(d, s.q, s.qd, s.qdd, is_start, is_end);
+    s.t = sampleAt(d, t, s.q, s.qd, s.qdd);
     return s;
 }
 
@@ -241,29 +258,24 @@ Trajectory::SamplesResult Trajectory::samples(double dt) const
 {
     if (!data_)
         throw std::logic_error("Trajectory is empty.");
-    if (!(dt > 0.0))
-        throw ValidationError("samples(dt): dt must be > 0.");
+    if (!(dt > 0.0) || !std::isfinite(dt))
+        throw ValidationError("samples(dt): dt must be finite and > 0.");
 
     const double T = data_->total_duration;
-    const auto n_steps = static_cast<std::size_t>(std::floor(T / dt));
-    const double last_step_t = static_cast<double>(n_steps) * dt;
+    const double steps = std::floor(T / dt);
+    const auto max_rows = std::numeric_limits<Eigen::Index>::max() / static_cast<Eigen::Index>(data_->dim);
+    if (!(steps + 2.0 <= static_cast<double>(max_rows)))
+        throw ValidationError("samples(dt): dt is too small for the trajectory duration.");
+    const auto n_steps = static_cast<Eigen::Index>(steps);
 
-    Eigen::VectorXd times;
-    // Append the final time only when it is meaningfully past the last step,
-    // so a duration within rounding of a dt multiple gets no duplicate sample.
-    if (T - last_step_t > 1e-9 * dt)
-    {
-        times.resize(static_cast<Eigen::Index>(n_steps + 2));
-        for (std::size_t i = 0; i <= n_steps; ++i)
-            times(static_cast<Eigen::Index>(i)) = static_cast<double>(i) * dt;
-        times(static_cast<Eigen::Index>(n_steps + 1)) = T;
-    }
-    else
-    {
-        times.resize(static_cast<Eigen::Index>(n_steps + 1));
-        for (std::size_t i = 0; i <= n_steps; ++i)
-            times(static_cast<Eigen::Index>(i)) = static_cast<double>(i) * dt;
-    }
+    // The last sample is always exactly the final time. It is appended only
+    // when meaningfully past the last step, so a duration within rounding of a
+    // dt multiple gets no near-duplicate sample.
+    const bool append_final = T - static_cast<double>(n_steps) * dt > 1e-9 * std::min(dt, T);
+    Eigen::VectorXd times(n_steps + (append_final ? 2 : 1));
+    for (Eigen::Index i = 0; i <= n_steps; ++i)
+        times(i) = static_cast<double>(i) * dt;
+    times(times.size() - 1) = T;
     return samples(times);
 }
 
@@ -271,6 +283,8 @@ Trajectory::SamplesResult Trajectory::samples(const Eigen::Ref<const Eigen::Vect
 {
     if (!data_)
         throw std::logic_error("Trajectory is empty.");
+    if (times.array().isNaN().any())
+        throw ValidationError("samples(times): times must not contain NaN.");
     const auto& d = *data_;
     const Eigen::Index M = times.size();
 
@@ -280,51 +294,13 @@ Trajectory::SamplesResult Trajectory::samples(const Eigen::Ref<const Eigen::Vect
     r.qd.resize(M, static_cast<Eigen::Index>(d.dim));
     r.qdd.resize(M, static_cast<Eigen::Index>(d.dim));
 
-    if (M == 0)
-        return r;
-    if (d.segments.empty())
-    {
-        for (Eigen::Index i = 0; i < M; ++i)
-        {
-            r.t(i) = std::clamp(times(i), 0.0, d.total_duration);
-            r.q.row(i).setZero();
-            r.qd.row(i).setZero();
-            r.qdd.row(i).setZero();
-        }
-        return r;
-    }
-
-    std::size_t seg_idx = 0;
-    double t_accum = d.cumulative_t[0];
-
     Eigen::VectorXd q(d.dim);
     Eigen::VectorXd qd(d.dim);
     Eigen::VectorXd qdd(d.dim);
 
     for (Eigen::Index i = 0; i < M; ++i)
     {
-        double t = std::clamp(times(i), 0.0, d.total_duration);
-        r.t(i) = t;
-
-        while (seg_idx < d.segments.size() - 1 && t > t_accum + d.segments[seg_idx].duration)
-        {
-            t_accum += d.segments[seg_idx].duration;
-            ++seg_idx;
-        }
-        while (seg_idx > 0 && t < t_accum)
-        {
-            --seg_idx;
-            t_accum -= d.segments[seg_idx].duration;
-        }
-
-        const auto& seg = d.segments[seg_idx];
-        double t_local = std::min(t - t_accum, seg.duration);
-        sampleAtSegment(seg, t_local, q, qd, qdd);
-
-        const bool is_start = (t == 0.0);
-        const bool is_end = (t == d.total_duration);
-        applyEndpointSnap(d, q, qd, qdd, is_start, is_end);
-
+        r.t(i) = sampleAt(d, times(i), q, qd, qdd);
         r.q.row(i) = q.transpose();
         r.qd.row(i) = qd.transpose();
         r.qdd.row(i) = qdd.transpose();
