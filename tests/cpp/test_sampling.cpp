@@ -28,6 +28,20 @@ Trajectory makeDemoScurve()
     return gen.generate(W);
 }
 
+// Out-and-back along x: the acceleration steps at every phase and segment boundary.
+Trajectory makeOutAndBackTrapezoid()
+{
+    Eigen::MatrixXd W(3, 2);
+    W << 0.0, 0.0, 1.0, 0.0, 0.0, 0.0;
+    Limits L;
+    L.v_max = (Eigen::VectorXd(2) << 1.0, 1.0).finished();
+    L.a_max = (Eigen::VectorXd(2) << 2.0, 2.0).finished();
+
+    TrapezoidalTrajectoryGenerator gen(2);
+    gen.setLimits(L);
+    return gen.generate(W);
+}
+
 } // namespace
 
 TEST(Sampling, SingleAndBatchAgree)
@@ -159,4 +173,59 @@ TEST(Sampling, BoundaryTimesSnapAnywhereInBatch)
     EXPECT_NEAR(r.qdd.row(1).norm(), 0.0, 1e-12);
     EXPECT_NEAR(r.qd.row(2).norm(), 0.0, 1e-12);
     EXPECT_NEAR(r.qdd.row(2).norm(), 0.0, 1e-12);
+}
+
+TEST(Sampling, TrapezoidEndpointsReportLimitAcceleration)
+{
+    auto traj = makeOutAndBackTrapezoid();
+    const Eigen::Vector2d expected(2.0, 0.0);
+    EXPECT_NEAR((traj.sample(0.0).qdd - expected).norm(), 0.0, 1e-12);
+    EXPECT_NEAR((traj.sample(traj.duration()).qdd - expected).norm(), 0.0, 1e-12);
+}
+
+TEST(Sampling, BoundarySamplesIndependentOfTimeOrder)
+{
+    auto traj = makeOutAndBackTrapezoid();
+    const auto& b = traj.segmentStartTimes();
+    ASSERT_EQ(b.size(), 3u);
+
+    // The first segment decelerates into the stop at the middle waypoint; a
+    // sample exactly on that boundary reports the segment ending there.
+    const Eigen::Vector2d at_stop(-2.0, 0.0);
+    EXPECT_NEAR((traj.sample(b[1]).qdd - at_stop).norm(), 0.0, 1e-12);
+
+    Eigen::VectorXd ascending(3), descending(3), shuffled(6);
+    ascending << b[0], b[1], b[2];
+    descending << b[2], b[1], b[0];
+    shuffled << b[1], b[2], b[1], b[0], b[1], b[1];
+    for (const Eigen::VectorXd& times : {ascending, descending, shuffled})
+    {
+        auto batch = traj.samples(times);
+        for (Eigen::Index i = 0; i < times.size(); ++i)
+        {
+            auto s = traj.sample(times(i));
+            EXPECT_EQ(s.q, batch.q.row(i).transpose()) << "row " << i;
+            EXPECT_EQ(s.qd, batch.qd.row(i).transpose()) << "row " << i;
+            EXPECT_EQ(s.qdd, batch.qdd.row(i).transpose()) << "row " << i;
+        }
+    }
+}
+
+TEST(Sampling, StepLongerThanDurationStillIncludesFinalTime)
+{
+    auto traj = makeDemoScurve();
+    auto r = traj.samples(1e12);
+    ASSERT_EQ(r.t.size(), 2);
+    EXPECT_EQ(r.t(0), 0.0);
+    EXPECT_EQ(r.t(1), traj.duration());
+}
+
+TEST(Sampling, LastUniformSampleIsExactlyTheFinalTime)
+{
+    auto traj = makeDemoScurve();
+    for (double dt : {0.01, traj.duration() / 1000.0, traj.duration() / 1000.0 * (1.0 - 1e-13)})
+    {
+        auto r = traj.samples(dt);
+        EXPECT_EQ(r.t(r.t.size() - 1), traj.duration()) << "dt " << dt;
+    }
 }

@@ -15,6 +15,7 @@ from ._core import (
     TrajectoryGenerator,
     TrapezoidalTrajectoryGenerator,
     ValidationError,
+    __version__,
 )
 
 __all__ = [
@@ -33,5 +34,3 @@ __all__ = [
     "TrapezoidalTrajectoryGenerator",
     "ValidationError",
 ]
-
-__version__ = "0.1.0"

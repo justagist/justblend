@@ -16,10 +16,12 @@ trajectory through them.
 
 ## Highlights
 
-- **Closed form, microsecond generation.** No optimisation loop, no
+- **Analytic segments, microsecond generation.** No optimisation loop, no
   discretisation: typical multi-waypoint problems generate in roughly
   0.05-0.1 ms and match ruckig's per-segment time-optimal durations on
-  polyline motions (see [benchmarks](benchmarks/README.md)).
+  polyline motions (see [benchmarks](benchmarks/README.md)). Sampling and
+  the trapezoidal profile are closed form; the S-curve profile finds its
+  peak and junction speeds with a short, bounded bisection.
 - **Two velocity profiles.** Bang-bang **trapezoidal** for the fastest
   rest-to-rest motion, or 7-phase jerk-limited **S-curve** when jerk
   limits are given.
@@ -104,6 +106,9 @@ arbitrary = traj.samples(np.linspace(0, traj.duration(), 1000))
 - `blend_radius` is the cut-back distance along each adjacent leg of the
   corner, not an arc radius: a blend replaces the final `r` of the incoming
   segment and the first `r` of the outgoing one.
+- A radius larger than half the shorter adjacent segment is clipped to that
+  half, in every corner mode, so neighbouring blends never overlap.
+  `blend_radii()` on the trajectory reports the radius actually used.
 - Blended corners cut the corner -- the trajectory does not pass through a
   blended interior waypoint. Use `StrictCorners` (or a per-corner radius via
   `blend_radii`) where exact pass-through matters.
@@ -132,6 +137,11 @@ auto traj = gen.generate(waypoints, /*v_start=*/0.3, /*v_end=*/0.0);
 traj = gen.generate(waypoints, v_start=0.3, v_end=0.0)
 ```
 
+The boundary state is restricted: each speed is a scalar along the first or
+last segment direction, and the boundary acceleration is zero for the
+S-curve profile. A start velocity in another direction, or a non-zero start
+acceleration, cannot be expressed.
+
 `GenerationOptions` carries `velocity_scaling_factor` and
 `acceleration_scaling_factor` in `(0, 1]` (matching MoveIt's semantics):
 they scale `v_max` / `a_max` at generation time; `j_max` is never scaled.
@@ -152,6 +162,19 @@ The `Trajectory` exposes timing and corner-cut metadata:
   accelerations quadratically, jerks cubically, so all limits remain
   satisfied). Durations shorter than the current one raise a
   `ValidationError`.
+
+## Sampling conventions
+
+- Times outside `[0, duration]` are clamped, including infinite ones; a NaN
+  time raises a `ValidationError`.
+- `samples(dt)` always ends with a sample at exactly `duration`.
+- Position and velocity are continuous everywhere. Acceleration steps at the
+  phase boundaries of a trapezoidal profile and at the ends of a parabolic
+  blend; a sample exactly on a step reports the value just before it, except
+  at `t = 0`, which reports the value just after. The ends of a trapezoidal
+  trajectory therefore report the acceleration of the adjacent phase: the
+  acceleration limit when it starts or ends in a ramp, zero when it starts or
+  ends in cruise (a boundary speed at the velocity limit).
 
 ## Install -- C++
 
@@ -181,7 +204,7 @@ This installs:
 After installing, consume justblend with `find_package`:
 
 ```cmake
-find_package(justblend 0.1.0 REQUIRED)
+find_package(justblend 0.2 REQUIRED)
 
 add_executable(my_app main.cpp)
 target_link_libraries(my_app PRIVATE justblend::justblend)

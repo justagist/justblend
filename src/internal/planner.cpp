@@ -67,6 +67,10 @@ std::shared_ptr<PlannedTrajectoryData> plan(
     {
         throw ValidationError("Need at least 2 waypoints.");
     }
+    if (!waypoints.allFinite())
+    {
+        throw ValidationError("Waypoints must be finite.");
+    }
     if (limits.v_max.size() != D || limits.a_max.size() != D)
     {
         throw ValidationError("Limits dimension does not match waypoint dimension.");
@@ -142,9 +146,9 @@ std::shared_ptr<PlannedTrajectoryData> plan(
         }
     }
 
-    if (v_start < 0.0 || v_end < 0.0)
+    if (!(v_start >= 0.0) || !(v_end >= 0.0))
     {
-        throw ValidationError("Boundary speeds must be >= 0.");
+        throw ValidationError("Boundary speeds must be finite and >= 0.");
     }
     if (v_start > sd_max(0) + 1e-12)
     {
@@ -219,8 +223,8 @@ std::shared_ptr<PlannedTrajectoryData> plan(
             if (options.corner_handling == CornerHandling::USE_BLENDING)
             {
                 std::ostringstream oss;
-                oss << "Blend at waypoint " << k
-                    << ": adjacent segments shorter than 2 * blend_radius = " << (2.0 * r_requested) << ".";
+                oss << "Blend at waypoint " << k << ": blend radius " << r << " is too small to blend (requested "
+                    << r_requested << ", limited to half the shorter adjacent segment = " << max_r_geom << ").";
                 throw ValidationError(oss.str());
             }
             corner_type[k] = CornerType::STOP;
@@ -331,7 +335,9 @@ std::shared_ptr<PlannedTrajectoryData> plan(
     // came out below the request cannot be realised on this path.
     if (U(0) + 1e-9 < v_start)
     {
-        throw ValidationError("v_start infeasible: cannot slow down to the next junction speed within the first segment.");
+        throw ValidationError(
+            "v_start infeasible: cannot slow down to the next junction speed within the first segment."
+        );
     }
     if (U(N - 1) + 1e-9 < v_end)
     {
@@ -437,6 +443,19 @@ std::shared_ptr<PlannedTrajectoryData> plan(
         out->cumulative_t[i + 1] = out->cumulative_t[i] + out->segments[i].duration;
     }
     out->total_duration = out->cumulative_t.back();
+
+    // Finite inputs can still overflow or underflow on the way here. A
+    // segment too short for its speed loses every phase and has no duration.
+    bool valid = !out->segments.empty() && std::isfinite(out->total_duration);
+    for (const auto& seg : out->segments)
+    {
+        valid = valid && seg.duration > 0.0;
+    }
+    if (!valid)
+    {
+        throw ValidationError("Generation produced an empty trajectory or a segment with a zero or non-finite "
+                              "duration; check the scale of the waypoints and limits.");
+    }
 
     out->segment_infos.reserve(out->segments.size());
     for (const auto& seg : out->segments)

@@ -61,7 +61,9 @@ enum class SegmentType
 /// @brief Corner-handling and scaling options applied at generation time.
 struct GenerationOptions
 {
-    // Scalar fallback used when blend_radii is unset (the common case).
+    // Scalar fallback used when blend_radii is unset (the common case). At
+    // each corner the radius is clipped to half the shorter adjacent segment;
+    // Trajectory::blendRadii() reports the radius actually used.
     double blend_radius = 0.1;
 
     // Optional per-corner radii. If size == 1 it broadcasts (equivalent to

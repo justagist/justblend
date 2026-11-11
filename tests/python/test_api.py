@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from importlib.metadata import PackageNotFoundError, version
+
 import numpy as np
 import pytest
 
@@ -257,3 +259,24 @@ def test_stretched_to(waypoints_3d, limits_3d):
         np.testing.assert_allclose(b.qd, a.qd / s, atol=1e-9)
     with pytest.raises(jb.ValidationError):
         traj.stretched_to(0.5 * traj.duration())
+
+
+def test_generator_getters_return_copies(waypoints_3d, limits_3d):
+    gen = jb.SCurveTrajectoryGenerator(dim=3)
+    gen.set_limits(limits_3d)
+    before = gen.generate(waypoints_3d).duration()
+
+    gen.options().velocity_scaling_factor = 2.0
+    gen.limits().v_max = -np.ones(3)
+
+    assert gen.options().velocity_scaling_factor == 1.0
+    np.testing.assert_array_equal(gen.limits().v_max, limits_3d.v_max)
+    assert gen.generate(waypoints_3d).duration() == before
+
+
+def test_version_matches_package_metadata():
+    try:
+        installed = version("justblend")
+    except PackageNotFoundError:
+        pytest.skip("justblend is imported from the source tree, not installed")
+    assert jb.__version__ == installed

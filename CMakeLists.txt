@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.18)
 project(justblend
-    VERSION 0.1.0
+    VERSION 0.2.0
     DESCRIPTION "Closed-form N-dimensional trajectory generator with smooth corner blends"
     LANGUAGES CXX)
 
@@ -17,7 +17,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+if(JUSTBLEND_STANDALONE AND NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
 
@@ -57,6 +57,7 @@ if(JUSTBLEND_BUILD_PYTHON_BINDINGS)
     find_package(pybind11 CONFIG REQUIRED)
     pybind11_add_module(_core MODULE bindings/python.cpp)
     target_link_libraries(_core PRIVATE justblend)
+    target_compile_definitions(_core PRIVATE JUSTBLEND_VERSION="${PROJECT_VERSION}")
     # Drop the module into the in-tree package so tests and examples can
     # import justblend straight from a source checkout without installing.
     set_target_properties(_core PROPERTIES
@@ -111,7 +112,8 @@ if(NOT SKBUILD)
     write_basic_package_version_file(
         "${CMAKE_CURRENT_BINARY_DIR}/justblendConfigVersion.cmake"
         VERSION ${PROJECT_VERSION}
-        COMPATIBILITY SameMajorVersion
+        # Minor releases may break the API until 1.0.
+        COMPATIBILITY SameMinorVersion
     )
     install(FILES
         "${CMAKE_CURRENT_BINARY_DIR}/justblendConfig.cmake"

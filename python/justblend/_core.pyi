@@ -8,6 +8,8 @@ import numpy.typing as npt
 
 ArrayLike = npt.NDArray[np.float64]
 
+__version__: str
+
 class ValidationError(ValueError): ...
 
 class BlendShape(Enum):
