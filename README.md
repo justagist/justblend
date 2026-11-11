@@ -171,8 +171,10 @@ The `Trajectory` exposes timing and corner-cut metadata:
 - Position and velocity are continuous everywhere. Acceleration steps at the
   phase boundaries of a trapezoidal profile and at the ends of a parabolic
   blend; a sample exactly on a step reports the value just before it, except
-  at `t = 0`, which reports the value just after. A trapezoidal trajectory
-  therefore starts and ends at its acceleration limit, not at zero.
+  at `t = 0`, which reports the value just after. The ends of a trapezoidal
+  trajectory therefore report the acceleration of the adjacent phase: the
+  acceleration limit when it starts or ends in a ramp, zero when it starts or
+  ends in cruise (a boundary speed at the velocity limit).
 
 ## Install -- C++
 

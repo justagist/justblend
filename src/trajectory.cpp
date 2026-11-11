@@ -70,8 +70,8 @@ void applyEndpointSnap(
     // Boundary velocities follow the (possibly nonzero) junction speeds along
     // the first / last segment direction; first and last segments are always
     // linear (endpoints are never blended). Acceleration is zero at both ends
-    // of an S-curve; a trapezoid starts and ends at its acceleration limit, so
-    // its computed value is kept.
+    // of an S-curve; a trapezoid usually starts and ends in a ramp at its
+    // acceleration limit, so its computed value is kept.
     if (is_start)
     {
         q = d.waypoints.row(0).transpose();

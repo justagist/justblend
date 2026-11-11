@@ -11,8 +11,10 @@ Notable changes to justblend. The format follows
 ### Fixed
 
 - NaN and infinite values are rejected in limits, blend radii, waypoints,
-  boundary speeds, sample times, sample steps and stretch durations. A NaN
-  waypoint used to give an empty trajectory that crashed when sampled.
+  boundary speeds, sample steps and stretch durations. A NaN waypoint used to
+  give an empty trajectory that crashed when sampled.
+- NaN sample times are rejected. Infinite sample times are clamped to the
+  trajectory ends, like any other out-of-range time.
 - Generation raises `ValidationError` when the result would be empty or have a
   non-finite duration, for example when a segment length overflows.
 - Python `TrajectoryGenerator.limits()` and `options()` return copies. Editing
@@ -35,9 +37,9 @@ Notable changes to justblend. The format follows
 ### Changed
 
 - At an acceleration step, a sample reports the value just before the step,
-  except at `t = 0`. Trapezoidal trajectories report their acceleration limit
-  at both ends where they used to report zero, and a sample exactly on a
-  trapezoid phase boundary reports the earlier phase.
+  except at `t = 0`. The ends of a trapezoidal trajectory report the
+  acceleration of the adjacent phase where they used to report zero, and a
+  sample exactly on a trapezoid phase boundary reports the earlier phase.
 - The last time returned by `samples(dt)` is exactly `duration()`.
 - `TrajectoryGenerator::generate` is `const`, and generators are copyable.
 - `find_package(justblend X.Y)` only accepts the same minor version until 1.0,
