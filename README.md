@@ -112,6 +112,11 @@ arbitrary = traj.samples(np.linspace(0, traj.duration(), 1000))
 - Blended corners cut the corner -- the trajectory does not pass through a
   blended interior waypoint. Use `StrictCorners` (or a per-corner radius via
   `blend_radii`) where exact pass-through matters.
+- To bound the corner cut instead of the radius, set `max_corner_deviation`:
+  each corner then uses the largest radius whose deviation stays within it
+  (still clipped to half the shorter segment), and `blend_radius` is ignored.
+  It cannot be combined with `blend_radii`. Gentle corners get large blends,
+  sharp corners small ones.
 - Corners within ~2.6 degrees of a full reversal (the path doubles back on
   itself) cannot be blended: `Hybrid` falls back to a full stop at the
   waypoint, `UseBlending` raises a `ValidationError`.
@@ -163,7 +168,27 @@ The `Trajectory` exposes timing and corner-cut metadata:
   satisfied). Durations shorter than the current one raise a
   `ValidationError`.
 
-## Sampling conventions
+## Sampling
+
+Every sample carries position `q`, velocity `qd`, acceleration `qdd` and
+jerk `qddd`. The jerk is analytic: the derivative of the acceleration within
+each phase. The impulses at acceleration steps (trapezoidal phases, parabolic
+blends) are not represented, so `qddd` is zero there; use the S-curve profile
+with Hermite blends when the jerk must be bounded everywhere.
+
+For real-time loops, `sampleInto` (C++ only) evaluates the trajectory
+without allocating. It writes either into a reusable `Sample`, sized on the
+first call, or into caller-owned buffers of size `dim()`:
+
+```cpp
+justblend::Sample s;
+traj.sampleInto(t, s);                // allocates only on the first call
+
+Eigen::VectorXd q(2), qd(2), qdd(2), qddd(2);
+traj.sampleInto(t, q, qd, qdd, qddd); // never allocates unless it throws
+```
+
+### Conventions
 
 - Times outside `[0, duration]` are clamped, including infinite ones; a NaN
   time raises a `ValidationError`.
@@ -204,7 +229,7 @@ This installs:
 After installing, consume justblend with `find_package`:
 
 ```cmake
-find_package(justblend 0.2 REQUIRED)
+find_package(justblend 0.3 REQUIRED)
 
 add_executable(my_app main.cpp)
 target_link_libraries(my_app PRIVATE justblend::justblend)

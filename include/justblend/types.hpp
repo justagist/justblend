@@ -79,15 +79,25 @@ struct GenerationOptions
     // acceleration_scaling_factor scales a_max; j_max is never scaled.
     double velocity_scaling_factor = 1.0;
     double acceleration_scaling_factor = 1.0;
+
+    // Optional corner tolerance: the largest distance between a blended
+    // waypoint and the blend path. When set, each corner uses the largest
+    // radius within it (still clipped to half the shorter adjacent segment),
+    // and blend_radius is ignored; blend_radii must then be unset. Must be > 0.
+    std::optional<double> max_corner_deviation;
 };
 
-/// @brief Trajectory state at one time instant: position, velocity, acceleration.
+/// @brief Trajectory state at one time instant: position, velocity,
+/// acceleration and jerk. Jerk is the derivative of acceleration within each
+/// phase; the impulses at acceleration steps (trapezoidal phases, parabolic
+/// blends) are not represented.
 struct Sample
 {
     double t = 0.0;
     Eigen::VectorXd q;
     Eigen::VectorXd qd;
     Eigen::VectorXd qdd;
+    Eigen::VectorXd qddd;
 };
 
 /// @brief Public description of one analytic segment; which fields are valid

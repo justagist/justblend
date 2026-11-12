@@ -64,6 +64,8 @@ Scenario randomScenario(std::mt19937& rng, bool scurve)
     }
     s.options.velocity_scaling_factor = uniform(rng, 0.3, 1.0);
     s.options.acceleration_scaling_factor = uniform(rng, 0.3, 1.0);
+    if (std::bernoulli_distribution(1.0 / 3.0)(rng))
+        s.options.max_corner_deviation = uniform(rng, 1e-3, 0.1);
     return s;
 }
 
@@ -115,7 +117,31 @@ void checkInvariants(const Scenario& s, const Trajectory& traj)
     {
         EXPECT_LE(dense.qd.col(j).cwiseAbs().maxCoeff(), v_limit(j) + 1e-9) << "axis " << j;
         EXPECT_LE(dense.qdd.col(j).cwiseAbs().maxCoeff(), a_limit(j) + 1e-9) << "axis " << j;
+        if (qdd_continuous)
+            EXPECT_LE(dense.qddd.col(j).cwiseAbs().maxCoeff(), (*s.limits.j_max)(j) + 1e-9) << "axis " << j;
     }
+
+    // The analytic jerk is the derivative of the acceleration. Compare it with
+    // a central difference wherever the jerk is linear across the window, which
+    // excludes the jerk steps between S-curve phases.
+    if (qdd_continuous)
+    {
+        const double h = 1e-6;
+        for (int i = 1; i < 50; ++i)
+        {
+            const double t = T * i / 50.0;
+            const auto minus = traj.sample(t - h);
+            const auto mid = traj.sample(t);
+            const auto plus = traj.sample(t + h);
+            if ((mid.qddd - 0.5 * (plus.qddd + minus.qddd)).norm() > 1e-6)
+                continue;
+            const Eigen::VectorXd difference = (plus.qdd - minus.qdd) / (2.0 * h);
+            EXPECT_LT((difference - mid.qddd).norm(), 1e-5) << "t " << t;
+        }
+    }
+
+    if (s.options.max_corner_deviation.has_value())
+        EXPECT_LE(traj.maxCornerDeviation(), *s.options.max_corner_deviation * (1.0 + 1e-12));
 
     const auto& waypoint_times = traj.waypointTimes();
     const auto& corner_types = traj.cornerTypes();

@@ -29,6 +29,7 @@ public:
         Eigen::MatrixXd q;
         Eigen::MatrixXd qd;
         Eigen::MatrixXd qdd;
+        Eigen::MatrixXd qddd;
     };
 
     Trajectory();
@@ -39,6 +40,27 @@ public:
     ~Trajectory();
 
     Sample sample(double t) const;
+
+    /// @brief Allocation-free sample into a reusable Sample. The vectors are
+    /// resized only when their size differs from dim(), so after the first
+    /// call this never allocates.
+    /// @param t Query time; clamped to [0, duration()]. NaN throws ValidationError.
+    /// @param out Receives the clamped time and the state.
+    void sampleInto(double t, Sample& out) const;
+
+    /// @brief Allocation-free sample into caller-owned buffers, for real-time
+    /// loops. Never allocates unless it throws.
+    /// @param t Query time; clamped to [0, duration()]. NaN throws ValidationError.
+    /// @param q Position output; every buffer must have size dim() or
+    /// ValidationError is thrown.
+    /// @param qd Velocity output.
+    /// @param qdd Acceleration output.
+    /// @param qddd Jerk output.
+    /// @return The clamped time.
+    double sampleInto(
+        double t, Eigen::Ref<Eigen::VectorXd> q, Eigen::Ref<Eigen::VectorXd> qd, Eigen::Ref<Eigen::VectorXd> qdd,
+        Eigen::Ref<Eigen::VectorXd> qddd
+    ) const;
     SamplesResult samples(double dt) const;
     SamplesResult samples(const Eigen::Ref<const Eigen::VectorXd>& times) const;
 

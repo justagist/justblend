@@ -29,6 +29,11 @@ bool allClose(const Eigen::VectorXd& a, const Eigen::VectorXd& b, double atol = 
     return ((diff <= tol).all());
 }
 
+/// @brief Ratio of a blend's corner deviation to r * |d_out - d_in|.
+/// @param shape Blend shape.
+/// @return 1/4 for a parabolic blend, 3/16 for a Hermite blend.
+double deviationFactor(BlendShape shape) { return shape == BlendShape::PARABOLIC ? 0.25 : 3.0 / 16.0; }
+
 SegmentInfo extractInfo(const Segment& seg)
 {
     SegmentInfo info;
@@ -194,6 +199,12 @@ std::shared_ptr<PlannedTrajectoryData> plan(
         }
         double max_r_geom = std::min(L_full(k - 1), L_full(k)) / 2.0;
         double r_requested = radius_for_corner(k);
+        if (options.max_corner_deviation.has_value())
+        {
+            // Inverse of the corner deviation formula used for corner_deviations below.
+            r_requested =
+                *options.max_corner_deviation / (deviationFactor(effective_blend_shape) * (u_curr - u_prev).norm());
+        }
         double r = std::min(r_requested, max_r_geom);
         if (r > 1e-9)
         {
@@ -424,8 +435,7 @@ std::shared_ptr<PlannedTrajectoryData> plan(
             // Deviation at the blend midpoint: (r/4)|d_out - d_in| for a
             // parabolic blend, (3r/16)|d_out - d_in| for a Hermite blend.
             const double delta_norm = (u_dir.row(kk) - u_dir.row(k)).norm();
-            const double factor = (effective_blend_shape == BlendShape::PARABOLIC) ? 0.25 : 3.0 / 16.0;
-            corner_deviation[kk] = factor * r_b * delta_norm;
+            corner_deviation[kk] = deviationFactor(effective_blend_shape) * r_b * delta_norm;
             waypoint_time[kk] = t_cursor + T_b / 2.0;
             t_cursor += T_b;
         }

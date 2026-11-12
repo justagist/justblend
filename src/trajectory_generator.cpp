@@ -50,6 +50,17 @@ void TrajectoryGenerator::setOptions(const GenerationOptions& opts)
             throw ValidationError("setOptions: every blend_radii entry must be finite and > 0.");
         }
     }
+    if (opts.max_corner_deviation.has_value())
+    {
+        if (!(*opts.max_corner_deviation > 0.0) || !std::isfinite(*opts.max_corner_deviation))
+        {
+            throw ValidationError("setOptions: max_corner_deviation must be finite and > 0.");
+        }
+        if (opts.blend_radii.has_value())
+        {
+            throw ValidationError("setOptions: set either max_corner_deviation or blend_radii, not both.");
+        }
+    }
     if (!(opts.velocity_scaling_factor > 0.0) || opts.velocity_scaling_factor > 1.0)
     {
         throw ValidationError("setOptions: velocity_scaling_factor must be in (0, 1].");

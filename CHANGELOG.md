@@ -6,6 +6,19 @@ Notable changes to justblend. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-12
+
+### Added
+
+- `GenerationOptions::max_corner_deviation`: a corner tolerance that replaces
+  the blend radius. Each corner uses the largest radius whose deviation stays
+  within it, still clipped to half the shorter adjacent segment.
+- Analytic jerk: `qddd` in `Sample` and `SamplesResult`. Impulses at
+  acceleration steps are not represented.
+- `Trajectory::sampleInto` (C++ only): allocation-free sampling into a
+  reusable `Sample` or into caller-owned `Eigen::Ref` buffers, for real-time
+  loops.
+
 ## [0.2.0] - 2026-11-11
 
 ### Fixed

@@ -15,14 +15,17 @@ double blendVCap(
     const Eigen::VectorXd& amax, const std::optional<Eigen::VectorXd>& jmax, BlendShape shape
 );
 
-struct BlendSample
-{
-    Eigen::VectorXd q;
-    Eigen::VectorXd qd;
-    Eigen::VectorXd qdd;
-};
-
-BlendSample sampleBlend(double t_local, const BlendSegmentData& seg);
+/// @brief Evaluate a blend segment into caller buffers without allocating.
+/// @param t_local Time since the start of the blend.
+/// @param seg Blend segment.
+/// @param q Position output, sized to the blend dimension.
+/// @param qd Velocity output.
+/// @param qdd Acceleration output.
+/// @param qddd Jerk output.
+void sampleBlend(
+    double t_local, const BlendSegmentData& seg, Eigen::Ref<Eigen::VectorXd> q, Eigen::Ref<Eigen::VectorXd> qd,
+    Eigen::Ref<Eigen::VectorXd> qdd, Eigen::Ref<Eigen::VectorXd> qddd
+);
 
 } // namespace justblend::internal
 

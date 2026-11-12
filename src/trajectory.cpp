@@ -32,8 +32,10 @@ std::size_t findSegmentIndex(const internal::PlannedTrajectoryData& d, double t)
     return j - 1;
 }
 
+using VectorRef = Eigen::Ref<Eigen::VectorXd>;
+
 void sampleAtSegment(
-    const internal::Segment& seg, double t_local, Eigen::VectorXd& q, Eigen::VectorXd& qd, Eigen::VectorXd& qdd
+    const internal::Segment& seg, double t_local, VectorRef q, VectorRef qd, VectorRef qdd, VectorRef qddd
 )
 {
     if (seg.type == SegmentType::LINEAR)
@@ -44,6 +46,7 @@ void sampleAtSegment(
             q = seg.linear.q0 + r.s * seg.linear.u_dir;
             qd = r.sd * seg.linear.u_dir;
             qdd = r.sdd * seg.linear.u_dir;
+            qddd = r.sddd * seg.linear.u_dir;
         }
         else
         {
@@ -51,20 +54,17 @@ void sampleAtSegment(
             q = seg.linear.q0 + r.s * seg.linear.u_dir;
             qd = r.sd * seg.linear.u_dir;
             qdd = r.sdd * seg.linear.u_dir;
+            qddd.setZero();
         }
     }
     else
     {
-        auto r = internal::sampleBlend(t_local, seg.blend);
-        q = std::move(r.q);
-        qd = std::move(r.qd);
-        qdd = std::move(r.qdd);
+        internal::sampleBlend(t_local, seg.blend, q, qd, qdd, qddd);
     }
 }
 
 void applyEndpointSnap(
-    const internal::PlannedTrajectoryData& d, Eigen::VectorXd& q, Eigen::VectorXd& qd, Eigen::VectorXd& qdd,
-    bool is_start, bool is_end
+    const internal::PlannedTrajectoryData& d, VectorRef q, VectorRef qd, VectorRef qdd, bool is_start, bool is_end
 )
 {
     // Boundary velocities follow the (possibly nonzero) junction speeds along
@@ -96,22 +96,23 @@ void applyEndpointSnap(
     }
 }
 
-/// @brief Evaluate the trajectory at one time. Single and batch sampling both
-/// go through here, so they agree at segment boundaries.
+/// @brief Evaluate the trajectory at one time without allocating. Every
+/// sampling call goes through here, so they all agree at segment boundaries.
 /// @param d Planned trajectory data.
 /// @param t Query time; clamped to [0, total duration].
 /// @param q Position output, sized to the trajectory dimension.
 /// @param qd Velocity output, sized to the trajectory dimension.
 /// @param qdd Acceleration output, sized to the trajectory dimension.
+/// @param qddd Jerk output, sized to the trajectory dimension.
 /// @return The clamped time.
 double sampleAt(
-    const internal::PlannedTrajectoryData& d, double t, Eigen::VectorXd& q, Eigen::VectorXd& qd, Eigen::VectorXd& qdd
+    const internal::PlannedTrajectoryData& d, double t, VectorRef q, VectorRef qd, VectorRef qdd, VectorRef qddd
 )
 {
     const double t_clamped = std::clamp(t, 0.0, d.total_duration);
     const std::size_t idx = findSegmentIndex(d, t_clamped);
     const auto& seg = d.segments[idx];
-    sampleAtSegment(seg, std::min(t_clamped - d.cumulative_t[idx], seg.duration), q, qd, qdd);
+    sampleAtSegment(seg, std::min(t_clamped - d.cumulative_t[idx], seg.duration), q, qd, qdd, qddd);
     applyEndpointSnap(d, q, qd, qdd, t_clamped == 0.0, t_clamped == d.total_duration);
     return t_clamped;
 }
@@ -256,8 +257,37 @@ Sample Trajectory::sample(double t) const
     s.q.resize(d.dim);
     s.qd.resize(d.dim);
     s.qdd.resize(d.dim);
-    s.t = sampleAt(d, t, s.q, s.qd, s.qdd);
+    s.qddd.resize(d.dim);
+    s.t = sampleAt(d, t, s.q, s.qd, s.qdd, s.qddd);
     return s;
+}
+
+void Trajectory::sampleInto(double t, Sample& out) const
+{
+    if (!data_)
+        throw std::logic_error("Trajectory is empty.");
+    const auto dim = static_cast<Eigen::Index>(data_->dim);
+    for (Eigen::VectorXd* v : {&out.q, &out.qd, &out.qdd, &out.qddd})
+    {
+        if (v->size() != dim)
+            v->resize(dim);
+    }
+    out.t = sampleInto(t, out.q, out.qd, out.qdd, out.qddd);
+}
+
+double Trajectory::sampleInto(
+    double t, Eigen::Ref<Eigen::VectorXd> q, Eigen::Ref<Eigen::VectorXd> qd, Eigen::Ref<Eigen::VectorXd> qdd,
+    Eigen::Ref<Eigen::VectorXd> qddd
+) const
+{
+    if (!data_)
+        throw std::logic_error("Trajectory is empty.");
+    if (std::isnan(t))
+        throw ValidationError("sampleInto: t must not be NaN.");
+    const auto dim = static_cast<Eigen::Index>(data_->dim);
+    if (q.size() != dim || qd.size() != dim || qdd.size() != dim || qddd.size() != dim)
+        throw ValidationError("sampleInto: every output buffer must have size dim().");
+    return sampleAt(*data_, t, q, qd, qdd, qddd);
 }
 
 Trajectory::SamplesResult Trajectory::samples(double dt) const
@@ -300,17 +330,20 @@ Trajectory::SamplesResult Trajectory::samples(const Eigen::Ref<const Eigen::Vect
     r.q.resize(M, static_cast<Eigen::Index>(d.dim));
     r.qd.resize(M, static_cast<Eigen::Index>(d.dim));
     r.qdd.resize(M, static_cast<Eigen::Index>(d.dim));
+    r.qddd.resize(M, static_cast<Eigen::Index>(d.dim));
 
     Eigen::VectorXd q(d.dim);
     Eigen::VectorXd qd(d.dim);
     Eigen::VectorXd qdd(d.dim);
+    Eigen::VectorXd qddd(d.dim);
 
     for (Eigen::Index i = 0; i < M; ++i)
     {
-        r.t(i) = sampleAt(d, times(i), q, qd, qdd);
+        r.t(i) = sampleAt(d, times(i), q, qd, qdd, qddd);
         r.q.row(i) = q.transpose();
         r.qd.row(i) = qd.transpose();
         r.qdd.row(i) = qdd.transpose();
+        r.qddd.row(i) = qddd.transpose();
     }
     return r;
 }

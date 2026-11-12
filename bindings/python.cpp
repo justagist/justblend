@@ -62,7 +62,7 @@ PYBIND11_MODULE(_core, m)
             py::init(
                 [](double blend_radius, std::optional<Eigen::VectorXd> blend_radii, CornerHandling corner_handling,
                    std::optional<BlendShape> blend_shape, double velocity_scaling_factor,
-                   double acceleration_scaling_factor)
+                   double acceleration_scaling_factor, std::optional<double> max_corner_deviation)
                 {
                     GenerationOptions o;
                     o.blend_radius = blend_radius;
@@ -71,12 +71,14 @@ PYBIND11_MODULE(_core, m)
                     o.blend_shape = blend_shape;
                     o.velocity_scaling_factor = velocity_scaling_factor;
                     o.acceleration_scaling_factor = acceleration_scaling_factor;
+                    o.max_corner_deviation = max_corner_deviation;
                     return o;
                 }
             ),
             py::arg("blend_radius") = 0.1, py::arg("blend_radii") = std::nullopt,
             py::arg("corner_handling") = CornerHandling::STRICT_CORNERS, py::arg("blend_shape") = std::nullopt,
-            py::arg("velocity_scaling_factor") = 1.0, py::arg("acceleration_scaling_factor") = 1.0
+            py::arg("velocity_scaling_factor") = 1.0, py::arg("acceleration_scaling_factor") = 1.0,
+            py::arg("max_corner_deviation") = std::nullopt
         )
         .def_readwrite("blend_radius", &GenerationOptions::blend_radius)
         .def_readwrite("blend_radii", &GenerationOptions::blend_radii)
@@ -84,15 +86,16 @@ PYBIND11_MODULE(_core, m)
         .def_readwrite("blend_shape", &GenerationOptions::blend_shape)
         .def_readwrite("velocity_scaling_factor", &GenerationOptions::velocity_scaling_factor)
         .def_readwrite("acceleration_scaling_factor", &GenerationOptions::acceleration_scaling_factor)
+        .def_readwrite("max_corner_deviation", &GenerationOptions::max_corner_deviation)
         .def(
             "__repr__",
             [](const GenerationOptions& o)
             {
                 return py::str("GenerationOptions(blend_radius={}, blend_radii={}, corner_handling={}, blend_shape={}, "
-                               "velocity_scaling_factor={}, acceleration_scaling_factor={})")
+                               "velocity_scaling_factor={}, acceleration_scaling_factor={}, max_corner_deviation={})")
                     .format(
                         o.blend_radius, o.blend_radii, o.corner_handling, o.blend_shape, o.velocity_scaling_factor,
-                        o.acceleration_scaling_factor
+                        o.acceleration_scaling_factor, o.max_corner_deviation
                     );
             }
         );
@@ -102,6 +105,7 @@ PYBIND11_MODULE(_core, m)
         .def_readonly("q", &Sample::q)
         .def_readonly("qd", &Sample::qd)
         .def_readonly("qdd", &Sample::qdd)
+        .def_readonly("qddd", &Sample::qddd)
         .def(
             "__repr__", [](const Sample& s)
             { return "Sample(t=" + std::to_string(s.t) + ", dim=" + std::to_string(s.q.size()) + ")"; }
@@ -129,7 +133,8 @@ PYBIND11_MODULE(_core, m)
         .def_readonly("t", &Trajectory::SamplesResult::t)
         .def_readonly("q", &Trajectory::SamplesResult::q)
         .def_readonly("qd", &Trajectory::SamplesResult::qd)
-        .def_readonly("qdd", &Trajectory::SamplesResult::qdd);
+        .def_readonly("qdd", &Trajectory::SamplesResult::qdd)
+        .def_readonly("qddd", &Trajectory::SamplesResult::qddd);
 
     py::class_<Trajectory>(m, "Trajectory")
         .def(py::init<>())

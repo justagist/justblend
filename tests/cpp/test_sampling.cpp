@@ -2,6 +2,7 @@
 
 #include <Eigen/Core>
 #include <cmath>
+#include <vector>
 
 #include "justblend/justblend.hpp"
 
@@ -228,4 +229,43 @@ TEST(Sampling, LastUniformSampleIsExactlyTheFinalTime)
         auto r = traj.samples(dt);
         EXPECT_EQ(r.t(r.t.size() - 1), traj.duration()) << "dt " << dt;
     }
+}
+
+TEST(Sampling, AllSingleSampleCallsAgree)
+{
+    auto traj = makeDemoScurve();
+    std::vector<double> times(traj.segmentStartTimes());
+    for (int i = 0; i <= 20; ++i)
+        times.push_back(traj.duration() * i / 20.0);
+    times.push_back(-1.0);
+    times.push_back(traj.duration() + 1.0);
+
+    Sample reused;
+    // Caller buffers need not be VectorXd: here they are columns of one matrix.
+    Eigen::MatrixXd buffers(2, 4);
+    for (double t : times)
+    {
+        const auto s = traj.sample(t);
+        traj.sampleInto(t, reused);
+        const double t_clamped = traj.sampleInto(t, buffers.col(0), buffers.col(1), buffers.col(2), buffers.col(3));
+
+        EXPECT_EQ(reused.t, s.t) << "t " << t;
+        EXPECT_EQ(t_clamped, s.t) << "t " << t;
+        EXPECT_EQ(reused.q, s.q) << "t " << t;
+        EXPECT_EQ(reused.qd, s.qd) << "t " << t;
+        EXPECT_EQ(reused.qdd, s.qdd) << "t " << t;
+        EXPECT_EQ(reused.qddd, s.qddd) << "t " << t;
+        EXPECT_EQ(Eigen::VectorXd(buffers.col(0)), s.q) << "t " << t;
+        EXPECT_EQ(Eigen::VectorXd(buffers.col(1)), s.qd) << "t " << t;
+        EXPECT_EQ(Eigen::VectorXd(buffers.col(2)), s.qdd) << "t " << t;
+        EXPECT_EQ(Eigen::VectorXd(buffers.col(3)), s.qddd) << "t " << t;
+    }
+}
+
+TEST(Sampling, BatchJerkMatchesSingleSamples)
+{
+    auto traj = makeDemoScurve();
+    auto batch = traj.samples(0.01);
+    for (Eigen::Index i = 0; i < batch.t.size(); ++i)
+        EXPECT_EQ(traj.sample(batch.t(i)).qddd, batch.qddd.row(i).transpose()) << "row " << i;
 }
