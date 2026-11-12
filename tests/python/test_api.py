@@ -257,6 +257,7 @@ def test_stretched_to(waypoints_3d, limits_3d):
         a, b = traj.sample(t), slow.sample(s * t)
         np.testing.assert_allclose(b.q, a.q, atol=1e-9)
         np.testing.assert_allclose(b.qd, a.qd / s, atol=1e-9)
+        np.testing.assert_allclose(b.qddd, a.qddd / s**3, atol=1e-9)
     with pytest.raises(jb.ValidationError):
         traj.stretched_to(0.5 * traj.duration())
 
@@ -280,3 +281,21 @@ def test_version_matches_package_metadata():
     except PackageNotFoundError:
         pytest.skip("justblend is imported from the source tree, not installed")
     assert jb.__version__ == installed
+
+
+def test_jerk_output(waypoints_3d, limits_3d):
+    traj = _make_scurve(waypoints_3d, limits_3d, blend_radius=0.15, corner_handling=jb.CornerHandling.HYBRID)
+    r = traj.samples(dt=0.005)
+    assert r.qddd.shape == r.qdd.shape
+    for i in range(3):
+        assert np.max(np.abs(r.qddd[:, i])) <= limits_3d.j_max[i] + 1e-9
+    np.testing.assert_array_equal(traj.sample(float(r.t[7])).qddd, r.qddd[7])
+
+
+def test_max_corner_deviation(waypoints_3d, limits_3d):
+    traj = _make_scurve(waypoints_3d, limits_3d, corner_handling=jb.CornerHandling.HYBRID, max_corner_deviation=0.01)
+    assert traj.max_corner_deviation() == pytest.approx(0.01, abs=1e-12)
+    with pytest.raises(jb.ValidationError):
+        jb.SCurveTrajectoryGenerator(dim=3).set_options(
+            jb.GenerationOptions(max_corner_deviation=0.01, blend_radii=np.array([0.1]))
+        )

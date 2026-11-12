@@ -18,6 +18,15 @@ Eigen::VectorXd vec3(double a, double b, double c)
     return v;
 }
 
+Sample sampleBlendAt(double t_local, const BlendSegmentData& seg)
+{
+    Sample s;
+    for (Eigen::VectorXd* v : {&s.q, &s.qd, &s.qdd, &s.qddd})
+        v->resize(seg.d_in.size());
+    sampleBlend(t_local, seg, s.q, s.qd, s.qdd, s.qddd);
+    return s;
+}
+
 } // namespace
 
 TEST(BlendCap, ParabolicMatchesClosedForm)
@@ -69,11 +78,11 @@ TEST(BlendSample, ParabolicEndpointsMatch)
     seg.d_out = vec3(0.0, 1.0, 0.0);
     seg.q_start = vec3(0.0, 0.0, 0.0);
 
-    auto s0 = sampleBlend(0.0, seg);
+    auto s0 = sampleBlendAt(0.0, seg);
     EXPECT_NEAR((s0.q - seg.q_start).norm(), 0.0, 1e-12);
     EXPECT_NEAR((s0.qd - seg.V * seg.d_in).norm(), 0.0, 1e-12);
 
-    auto s1 = sampleBlend(seg.duration, seg);
+    auto s1 = sampleBlendAt(seg.duration, seg);
     EXPECT_NEAR((s1.qd - seg.V * seg.d_out).norm(), 0.0, 1e-12);
 }
 
@@ -88,8 +97,8 @@ TEST(BlendSample, HermiteZeroAccelAtBoundaries)
     seg.d_out = vec3(0.0, 1.0, 0.0);
     seg.q_start = vec3(0.0, 0.0, 0.0);
 
-    auto s0 = sampleBlend(0.0, seg);
-    auto s1 = sampleBlend(seg.duration, seg);
+    auto s0 = sampleBlendAt(0.0, seg);
+    auto s1 = sampleBlendAt(seg.duration, seg);
     EXPECT_NEAR(s0.qdd.norm(), 0.0, 1e-12);
     EXPECT_NEAR(s1.qdd.norm(), 0.0, 1e-12);
     EXPECT_NEAR((s0.qd - seg.V * seg.d_in).norm(), 0.0, 1e-12);

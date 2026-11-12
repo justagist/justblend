@@ -283,3 +283,60 @@ TEST(CornerHandling, HybridCollapseRevertsToStop)
     auto s1 = traj.sample(traj.duration());
     EXPECT_NEAR((s1.q - W.row(2).transpose()).norm(), 0.0, 1e-12);
 }
+
+class MaxCornerDeviation : public ::testing::TestWithParam<BlendShape>
+{
+};
+
+TEST_P(MaxCornerDeviation, SetsRadiusFromTolerance)
+{
+    // Right-angle corner on long legs, so the half-leg clip does not bind and
+    // the blend reaches the tolerance exactly. blend_radius is ignored.
+    Eigen::MatrixXd W(3, 2);
+    W << 0.0, 0.0, 2.0, 0.0, 2.0, 2.0;
+    SCurveTrajectoryGenerator gen(2);
+    Limits L;
+    L.v_max = Eigen::VectorXd::Constant(2, 1.0);
+    L.a_max = Eigen::VectorXd::Constant(2, 2.0);
+    L.j_max = Eigen::VectorXd::Constant(2, 10.0);
+    gen.setLimits(L);
+    GenerationOptions opts;
+    opts.corner_handling = CornerHandling::USE_BLENDING;
+    opts.blend_shape = GetParam();
+    opts.blend_radius = 1e-3;
+    opts.max_corner_deviation = 0.01;
+    gen.setOptions(opts);
+
+    auto traj = gen.generate(W);
+    const double factor = GetParam() == BlendShape::PARABOLIC ? 0.25 : 3.0 / 16.0;
+    EXPECT_NEAR(traj.blendRadii()[1], 0.01 / (factor * std::sqrt(2.0)), 1e-12);
+    EXPECT_NEAR(traj.cornerDeviations()[1], 0.01, 1e-12);
+    const auto at_corner = traj.sample(traj.waypointTimes()[1]);
+    EXPECT_NEAR((at_corner.q - W.row(1).transpose()).norm(), 0.01, 1e-12);
+}
+
+TEST_P(MaxCornerDeviation, RadiusStillClippedToHalfLeg)
+{
+    Eigen::MatrixXd W(3, 2);
+    W << 0.0, 0.0, 0.1, 0.0, 0.1, 0.1;
+    TrapezoidalTrajectoryGenerator gen(2);
+    Limits L;
+    L.v_max = Eigen::VectorXd::Constant(2, 1.0);
+    L.a_max = Eigen::VectorXd::Constant(2, 2.0);
+    gen.setLimits(L);
+    GenerationOptions opts;
+    opts.corner_handling = CornerHandling::HYBRID;
+    opts.blend_shape = GetParam();
+    opts.max_corner_deviation = 1.0;
+    gen.setOptions(opts);
+
+    auto traj = gen.generate(W);
+    EXPECT_EQ(traj.blendRadii()[1], 0.05);
+    EXPECT_LT(traj.cornerDeviations()[1], 1.0);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    Shapes, MaxCornerDeviation, ::testing::Values(BlendShape::PARABOLIC, BlendShape::HERMITE),
+    [](const ::testing::TestParamInfo<BlendShape>& info)
+    { return info.param == BlendShape::PARABOLIC ? "Parabolic" : "Hermite"; }
+);

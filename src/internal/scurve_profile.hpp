@@ -19,6 +19,7 @@ struct ScurveSample
     double s;
     double sd;
     double sdd;
+    double sddd;
 };
 
 ScurveSample sampleScurve(double t_local, double v0, const std::vector<ScurvePhase>& phases);

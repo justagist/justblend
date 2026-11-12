@@ -103,7 +103,7 @@ ScurveSample sampleScurve(double t_local, double v0, const std::vector<ScurvePha
             s += sd * t_rem + 0.5 * sdd * t_rem * t_rem + (1.0 / 6.0) * p.jerk * t_rem * t_rem * t_rem;
             sd += sdd * t_rem + 0.5 * p.jerk * t_rem * t_rem;
             sdd += p.jerk * t_rem;
-            return {s, sd, sdd};
+            return {s, sd, sdd, p.jerk};
         }
         s += sd * p.duration + 0.5 * sdd * p.duration * p.duration +
              (1.0 / 6.0) * p.jerk * p.duration * p.duration * p.duration;
@@ -111,7 +111,7 @@ ScurveSample sampleScurve(double t_local, double v0, const std::vector<ScurvePha
         sdd += p.jerk * p.duration;
         t_rem -= p.duration;
     }
-    return {s, sd, sdd};
+    return {s, sd, sdd, phases.empty() ? 0.0 : phases.back().jerk};
 }
 
 double reachableScurve(double v0, double amax, double jmax, double D, double v_upper)

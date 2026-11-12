@@ -73,6 +73,22 @@ TEST(Validation, NonFiniteBlendRadiiRejected)
     }
 }
 
+TEST(Validation, BadCornerDeviationRejected)
+{
+    SCurveTrajectoryGenerator gen(2);
+    for (double bad : {0.0, -0.1, kNaN, kInf})
+    {
+        GenerationOptions opts;
+        opts.max_corner_deviation = bad;
+        EXPECT_THROW(gen.setOptions(opts), ValidationError);
+    }
+
+    GenerationOptions both;
+    both.max_corner_deviation = 0.01;
+    both.blend_radii = Eigen::VectorXd::Constant(1, 0.1);
+    EXPECT_THROW(gen.setOptions(both), ValidationError);
+}
+
 TEST(Validation, NonFiniteWaypointsRejected)
 {
     const auto gen = makeGenerator();
@@ -116,6 +132,18 @@ TEST(Validation, NonFiniteSampleTimes)
     // Infinite times clamp like any other out-of-range time.
     EXPECT_DOUBLE_EQ(traj.sample(kInf).t, traj.duration());
     EXPECT_DOUBLE_EQ(traj.sample(-kInf).t, 0.0);
+}
+
+TEST(Validation, SampleIntoRejectsNaNAndWrongBufferSizes)
+{
+    const auto traj = makeGenerator().generate(cornerWaypoints());
+    Sample s;
+    EXPECT_THROW(traj.sampleInto(kNaN, s), ValidationError);
+
+    Eigen::VectorXd ok(2), wrong(3);
+    EXPECT_THROW(traj.sampleInto(kNaN, ok, ok, ok, ok), ValidationError);
+    EXPECT_THROW(traj.sampleInto(0.5, wrong, ok, ok, ok), ValidationError);
+    EXPECT_THROW(traj.sampleInto(0.5, ok, ok, ok, wrong), ValidationError);
 }
 
 TEST(Validation, BadSampleStepRejected)

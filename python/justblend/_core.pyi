@@ -49,6 +49,7 @@ class GenerationOptions:
     blend_shape: BlendShape | None
     velocity_scaling_factor: float
     acceleration_scaling_factor: float
+    max_corner_deviation: float | None
     def __init__(
         self,
         blend_radius: float = ...,
@@ -57,6 +58,7 @@ class GenerationOptions:
         blend_shape: BlendShape | None = ...,
         velocity_scaling_factor: float = ...,
         acceleration_scaling_factor: float = ...,
+        max_corner_deviation: float | None = ...,
     ) -> None: ...
 
 class Sample:
@@ -64,12 +66,14 @@ class Sample:
     q: ArrayLike
     qd: ArrayLike
     qdd: ArrayLike
+    qddd: ArrayLike
 
 class SamplesResult:
     t: ArrayLike
     q: ArrayLike
     qd: ArrayLike
     qdd: ArrayLike
+    qddd: ArrayLike
 
 class SegmentInfo:
     type: SegmentType
