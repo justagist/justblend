@@ -154,7 +154,7 @@ This installs:
 After installing, consume justblend with `find_package`:
 
 ```cmake
-find_package(justblend 0.3 REQUIRED)
+find_package(justblend 0.4 REQUIRED)
 
 add_executable(my_app main.cpp)
 target_link_libraries(my_app PRIVATE justblend::justblend)
