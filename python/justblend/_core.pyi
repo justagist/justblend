@@ -18,8 +18,9 @@ class BlendShape(Enum):
 
 class CornerHandling(Enum):
     STRICT_CORNERS = 0
-    USE_BLENDING = 1
-    HYBRID = 2
+    BLEND_ALL = 1
+    BLEND_WHERE_FEASIBLE = 2
+    BLEND_WHERE_FASTER = 3
 
 class CornerType(Enum):
     ENDPOINT = 0

@@ -32,8 +32,9 @@ def main() -> None:
 
     modes = [
         ("strict_corners", jb.CornerHandling.STRICT_CORNERS),
-        ("hybrid", jb.CornerHandling.HYBRID),
-        ("use_blending", jb.CornerHandling.USE_BLENDING),
+        ("blend_all", jb.CornerHandling.BLEND_ALL),
+        ("blend_where_feasible", jb.CornerHandling.BLEND_WHERE_FEASIBLE),
+        ("blend_where_faster", jb.CornerHandling.BLEND_WHERE_FASTER),
     ]
 
     for name, ch in modes:

@@ -16,19 +16,19 @@ trajectory through them.
 
 ## Highlights
 
-- **Analytic segments, microsecond generation.** No optimisation loop, no
-  discretisation: typical multi-waypoint problems generate in roughly
-  0.05-0.1 ms and match ruckig's per-segment time-optimal durations on
-  polyline motions (see [benchmarks](benchmarks/README.md)). Sampling and
-  the trapezoidal profile are closed form; the S-curve profile finds its
-  peak and junction speeds with a short, bounded bisection.
+- **Analytic segments, microsecond generation.** No optimisation over a
+  discretised path: typical multi-waypoint problems generate in a few
+  microseconds (tens with `BLEND_WHERE_FASTER` on S-curves), and match
+  ruckig's per-segment time-optimal durations on polyline motions (see
+  [benchmarks](benchmarks/README.md)).
 - **Two velocity profiles.** Bang-bang **trapezoidal** for the fastest
   rest-to-rest motion, or 7-phase jerk-limited **S-curve** when jerk
   limits are given.
-- **Three corner modes, two blend shapes.** Stop at every waypoint,
-  blend through corners, or a hybrid that blends where feasible. The
-  cubic-Hermite blend has zero acceleration at its boundaries, so an
-  S-curve trajectory stays jerk-limited through the corner.
+- **Four corner modes, two blend shapes.** Stop at every waypoint, blend
+  every corner, blend wherever a blend fits, or blend only where that is
+  faster than stopping. The cubic-Hermite blend has zero acceleration at
+  its boundaries, so an S-curve trajectory stays jerk-limited through the
+  corner.
 - **Analytic guarantees.** Limits are satisfied by construction; the
   corner-cut deviation and per-waypoint passage times come back in
   closed form.
@@ -40,10 +40,6 @@ trajectory through them.
 The output `Trajectory` is lazy: it owns a list of analytic segments and
 can be sampled at any time `t` in `[0, duration]` without precomputing a
 dense buffer.
-
-![Trapezoidal vs S-curve profiles](docs/profiles.png)
-
-*(figures regenerate with `python docs/generate_readme_figures.py`)*
 
 ## Getting started -- C++
 
@@ -63,7 +59,7 @@ limits.j_max = (Eigen::VectorXd(2) << 20.0, 18.0).finished();
 
 justblend::GenerationOptions opts;
 opts.blend_radius = 0.15;
-opts.corner_handling = justblend::CornerHandling::HYBRID;
+opts.corner_handling = justblend::CornerHandling::BLEND_WHERE_FASTER;
 
 justblend::SCurveTrajectoryGenerator gen(2);
 gen.setLimits(limits);
@@ -88,7 +84,7 @@ limits = jb.Limits(
 )
 opts = jb.GenerationOptions(
     blend_radius=0.15,
-    corner_handling=jb.CornerHandling.HYBRID,
+    corner_handling=jb.CornerHandling.BLEND_WHERE_FASTER,
 )
 
 gen = jb.SCurveTrajectoryGenerator(dim=2)
@@ -101,105 +97,34 @@ dense = traj.samples(dt=0.002)
 arbitrary = traj.samples(np.linspace(0, traj.duration(), 1000))
 ```
 
-## Corner semantics
-
-- `blend_radius` is the cut-back distance along each adjacent leg of the
-  corner, not an arc radius: a blend replaces the final `r` of the incoming
-  segment and the first `r` of the outgoing one.
-- A radius larger than half the shorter adjacent segment is clipped to that
-  half, in every corner mode, so neighbouring blends never overlap.
-  `blend_radii()` on the trajectory reports the radius actually used.
-- Blended corners cut the corner -- the trajectory does not pass through a
-  blended interior waypoint. Use `StrictCorners` (or a per-corner radius via
-  `blend_radii`) where exact pass-through matters.
-- To bound the corner cut instead of the radius, set `max_corner_deviation`:
-  each corner then uses the largest radius whose deviation stays within it
-  (still clipped to half the shorter segment), and `blend_radius` is ignored.
-  It cannot be combined with `blend_radii`. Gentle corners get large blends,
-  sharp corners small ones.
-- Corners within ~2.6 degrees of a full reversal (the path doubles back on
-  itself) cannot be blended: `Hybrid` falls back to a full stop at the
-  waypoint, `UseBlending` raises a `ValidationError`.
-- An S-curve trajectory is jerk-limited end to end only with the default
-  Hermite blends. Forcing `blend_shape = Parabolic` on the S-curve generator
-  keeps the velocity and acceleration limits but introduces acceleration
-  steps at blend boundaries, i.e. unbounded jerk there.
-
 All input-validation failures throw `justblend::ValidationError`, which the
 Python bindings raise as a `ValueError` subclass.
 
-## Boundary speeds, timing and deviation queries
+## Corner handling
 
-`generate()` accepts optional tangential boundary speeds along the first and
-last segment direction; infeasible requests (too fast for the limits or for
-the available distance) raise a `ValidationError`:
+| Mode | At each corner | Where a blend cannot be used |
+|---|---|---|
+| `STRICT_CORNERS` (default) | stops | -- |
+| `BLEND_ALL` | blends | raises `ValidationError` |
+| `BLEND_WHERE_FEASIBLE` | blends wherever a blend can be used | stops |
+| `BLEND_WHERE_FASTER` | blends only where that is faster than stopping | stops |
 
-```cpp
-auto traj = gen.generate(waypoints, /*v_start=*/0.3, /*v_end=*/0.0);
-```
+Blends cut the corner: the trajectory does not pass through a blended
+waypoint. [Corner handling](docs/corner_handling.md) compares the modes,
+with their costs and when to use each, and covers blend radii, deviation
+bounds, blend shapes and collinear waypoints.
 
-```python
-traj = gen.generate(waypoints, v_start=0.3, v_end=0.0)
-```
+## Documentation
 
-The boundary state is restricted: each speed is a scalar along the first or
-last segment direction, and the boundary acceleration is zero for the
-S-curve profile. A start velocity in another direction, or a non-zero start
-acceleration, cannot be expressed.
+- [Corner handling](docs/corner_handling.md) -- the four modes, blend radius
+  and shape, corner deviation.
+- [Timing and sampling](docs/timing_and_sampling.md) -- boundary speeds,
+  limit scaling, timing queries, sampling and its conventions.
+- [Algorithms](docs/algorithms.md) -- how a trajectory is built.
+- [Benchmarks](benchmarks/README.md) -- comparison with ruckig and toppra.
+- [Changelog](CHANGELOG.md)
 
-`GenerationOptions` carries `velocity_scaling_factor` and
-`acceleration_scaling_factor` in `(0, 1]` (matching MoveIt's semantics):
-they scale `v_max` / `a_max` at generation time; `j_max` is never scaled.
-
-The `Trajectory` exposes timing and corner-cut metadata:
-
-- `segment_start_times()` -- start time of each segment plus the total
-  duration as the last entry.
-- `waypoint_times()` -- passage time per waypoint; for blended corners this
-  is the time of closest approach (the blend midpoint).
-- `corner_deviations()` / `max_corner_deviation()` -- closed-form distance
-  between each blended corner's waypoint and the blend path
-  (`(r/4)·|d_out - d_in|` for parabolic, `(3r/16)·|d_out - d_in|` for
-  Hermite blends; zero for non-blend corners). Useful to bound how far the
-  blended trajectory strays from the original polyline.
-- `stretched_to(duration)` -- uniformly time-dilated copy with exactly the
-  requested total duration (same path; velocities scale by `T/duration`,
-  accelerations quadratically, jerks cubically, so all limits remain
-  satisfied). Durations shorter than the current one raise a
-  `ValidationError`.
-
-## Sampling
-
-Every sample carries position `q`, velocity `qd`, acceleration `qdd` and
-jerk `qddd`. The jerk is analytic: the derivative of the acceleration within
-each phase. The impulses at acceleration steps (trapezoidal phases, parabolic
-blends) are not represented, so `qddd` is zero there; use the S-curve profile
-with Hermite blends when the jerk must be bounded everywhere.
-
-For real-time loops, `sampleInto` (C++ only) evaluates the trajectory
-without allocating. It writes either into a reusable `Sample`, sized on the
-first call, or into caller-owned buffers of size `dim()`:
-
-```cpp
-justblend::Sample s;
-traj.sampleInto(t, s);                // allocates only on the first call
-
-Eigen::VectorXd q(2), qd(2), qdd(2), qddd(2);
-traj.sampleInto(t, q, qd, qdd, qddd); // never allocates unless it throws
-```
-
-### Conventions
-
-- Times outside `[0, duration]` are clamped, including infinite ones; a NaN
-  time raises a `ValidationError`.
-- `samples(dt)` always ends with a sample at exactly `duration`.
-- Position and velocity are continuous everywhere. Acceleration steps at the
-  phase boundaries of a trapezoidal profile and at the ends of a parabolic
-  blend; a sample exactly on a step reports the value just before it, except
-  at `t = 0`, which reports the value just after. The ends of a trapezoidal
-  trajectory therefore report the acceleration of the adjacent phase: the
-  acceleration limit when it starts or ends in a ramp, zero when it starts or
-  ends in cruise (a boundary speed at the velocity limit).
+The figures regenerate with `python docs/generate_figures.py`.
 
 ## Install -- C++
 
@@ -266,13 +191,6 @@ pip install .
 `pip install` fetches `scikit-build-core` and `pybind11` automatically and
 drives the same CMake build under the hood -- no separate C++ install step
 needed. Eigen 3.3+ must still be installed on the host.
-
-## Benchmarks
-
-justblend is benchmarked against ruckig and toppra on shared scenarios;
-instructions, result tables and plots live in
-[benchmarks/README.md](benchmarks/README.md) (regenerated by
-`python benchmarks/run.py`).
 
 ## License
 

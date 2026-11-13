@@ -67,6 +67,10 @@ public:
     double duration() const noexcept;
     std::size_t dim() const noexcept;
 
+    /// @brief Path speed per waypoint: zero at a stop, the speed at its
+    /// passage time at a merged collinear waypoint, and for a blended corner
+    /// the corner speed, at which the blend starts and ends.
+    /// @return Vector of size N (one entry per input waypoint).
     const Eigen::VectorXd& junctionSpeeds() const;
     const std::vector<double>& blendRadii() const;
     const std::vector<CornerType>& cornerTypes() const;
@@ -80,13 +84,15 @@ public:
     /// @return Vector of size N (one entry per input waypoint).
     const std::vector<double>& waypointTimes() const;
 
-    /// @brief Corner-cut distance per waypoint: the closed-form distance between
-    /// the waypoint and the blend path at its midpoint. Zero at non-blend corners.
+    /// @brief Distance per waypoint between the waypoint and the trajectory at
+    /// its passage time: the closed-form corner cut at a blend, the distance
+    /// to the merged straight segment at a collinear (PASS) waypoint, and zero
+    /// otherwise.
     /// @return Vector of size N (one entry per input waypoint).
     const std::vector<double>& cornerDeviations() const;
 
     /// @brief Largest entry of cornerDeviations().
-    /// @return 0.0 when there are no blends.
+    /// @return 0.0 when every waypoint is passed exactly.
     double maxCornerDeviation() const;
 
     /// @brief Copy of this trajectory uniformly slowed down to an exact total

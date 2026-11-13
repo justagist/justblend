@@ -24,8 +24,9 @@ PYBIND11_MODULE(_core, m)
 
     py::enum_<CornerHandling>(m, "CornerHandling")
         .value("STRICT_CORNERS", CornerHandling::STRICT_CORNERS)
-        .value("USE_BLENDING", CornerHandling::USE_BLENDING)
-        .value("HYBRID", CornerHandling::HYBRID);
+        .value("BLEND_ALL", CornerHandling::BLEND_ALL)
+        .value("BLEND_WHERE_FEASIBLE", CornerHandling::BLEND_WHERE_FEASIBLE)
+        .value("BLEND_WHERE_FASTER", CornerHandling::BLEND_WHERE_FASTER);
 
     py::enum_<CornerType>(m, "CornerType")
         .value("ENDPOINT", CornerType::ENDPOINT)

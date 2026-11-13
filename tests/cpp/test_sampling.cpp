@@ -24,7 +24,7 @@ Trajectory makeDemoScurve()
     gen.setLimits(L);
     GenerationOptions opts;
     opts.blend_radius = 0.15;
-    opts.corner_handling = CornerHandling::HYBRID;
+    opts.corner_handling = CornerHandling::BLEND_WHERE_FASTER;
     gen.setOptions(opts);
     return gen.generate(W);
 }

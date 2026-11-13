@@ -59,8 +59,9 @@ def test_parity(path):
 
     ch_map = {
         "strict_corners": jb.CornerHandling.STRICT_CORNERS,
-        "use_blending": jb.CornerHandling.USE_BLENDING,
-        "hybrid": jb.CornerHandling.HYBRID,
+        "use_blending": jb.CornerHandling.BLEND_ALL,
+        # The reference's hybrid blends every corner that allows it.
+        "hybrid": jb.CornerHandling.BLEND_WHERE_FEASIBLE,
     }
     bs_map = {"parabolic": jb.BlendShape.PARABOLIC, "hermite": jb.BlendShape.HERMITE}
     opts = jb.GenerationOptions(

@@ -27,7 +27,7 @@ void runOne(justblend::BlendShape shape)
 
     justblend::GenerationOptions opts;
     opts.blend_radius = 0.15;
-    opts.corner_handling = justblend::CornerHandling::HYBRID;
+    opts.corner_handling = justblend::CornerHandling::BLEND_WHERE_FEASIBLE;
     opts.blend_shape = shape;
 
     justblend::SCurveTrajectoryGenerator gen(3);

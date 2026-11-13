@@ -25,7 +25,7 @@ PLOTS_DIR = os.path.join(HERE, "plots")
 # Methods overlaid on the path plots: only those whose geometry differs from
 # the waypoint polyline (strict/chained methods follow it exactly). Capped at
 # four series to match the validated all-pairs palette slots.
-PATH_PLOT_METHODS = ("jb-scurve-hybrid", "jb-trap-hybrid", "ruckig-waypoints", "toppra-spline")
+PATH_PLOT_METHODS = ("jb-scurve-faster", "jb-trap-faster", "ruckig-waypoints", "toppra-spline")
 
 # Categorical palette (light mode), fixed slot order; single-hue bars use slot 1.
 SERIES_COLOURS = ("#2a78d6", "#008300", "#e87ba4", "#eda100")
@@ -138,7 +138,11 @@ def run_scenario(sc: Scenario) -> list[BenchResult]:
         except Exception as e:  # noqa: BLE001 - report and continue benchmarking
             results.append(BenchResult(f"FAILED: {e}", np.nan, np.nan, None, None, None, None))
 
-    for ch, tag in ((jb.CornerHandling.STRICT_CORNERS, "strict"), (jb.CornerHandling.HYBRID, "hybrid")):
+    for ch, tag in (
+        (jb.CornerHandling.STRICT_CORNERS, "strict"),
+        (jb.CornerHandling.BLEND_WHERE_FEASIBLE, "feasible"),
+        (jb.CornerHandling.BLEND_WHERE_FASTER, "faster"),
+    ):
         add(
             lambda ch=ch, tag=tag: adapters.run_justblend(
                 f"jb-trap-{tag}", sc.W, sc.v_max, sc.a_max, None, sc.blend_radius, ch, sc.dt
@@ -195,9 +199,7 @@ def plot_scenario(sc: Scenario, results: list[BenchResult], out_png: str) -> Non
         if log:
             ax.set_xscale("log")
         for yi, v in zip(y, values):
-            ax.annotate(
-                f" {v:.3g}", (v, yi), va="center", fontsize=7, color="#52514e"
-            )
+            ax.annotate(f" {v:.3g}", (v, yi), va="center", fontsize=7, color="#52514e")
         ax.spines[["top", "right"]].set_visible(False)
         ax.tick_params(axis="x", labelsize=8)
 
@@ -227,9 +229,11 @@ python benchmarks/run.py [--dt 0.001]
 | method | profile | corner handling | path |
 |---|---|---|---|
 | jb-trap-strict | trapezoidal | full stop at every waypoint | exact polyline |
-| jb-trap-hybrid | trapezoidal | parabolic blends where feasible | polyline with rounded corners |
+| jb-trap-feasible | trapezoidal | parabolic blends wherever a blend fits | polyline with rounded corners |
+| jb-trap-faster | trapezoidal | parabolic blends where faster than stopping | polyline with rounded corners |
 | jb-scurve-strict | jerk-limited S-curve | full stop at every waypoint | exact polyline |
-| jb-scurve-hybrid | jerk-limited S-curve | Hermite blends where feasible | polyline with rounded corners |
+| jb-scurve-feasible | jerk-limited S-curve | Hermite blends wherever a blend fits | polyline with rounded corners |
+| jb-scurve-faster | jerk-limited S-curve | Hermite blends where faster than stopping | polyline with rounded corners |
 | ruckig-chained | jerk-limited | full stop at every waypoint | unconstrained between waypoints (per-axis profiles) |
 | ruckig-waypoints | jerk-limited | passes through waypoints at speed | unconstrained (per-axis profiles through waypoints) |
 | toppra-chained | vel/acc time-optimal | full stop at every waypoint | exact polyline |
@@ -269,8 +273,11 @@ NOTES = """\
 - ruckig-waypoints passes through every waypoint without stopping (wp miss
   ~0) but its path between waypoints is unconstrained; its generation time
   is dominated by the cloud-API round trip in the community edition.
-- jb-*-hybrid rounds corners; the deviation is bounded and reported by
-  `Trajectory::maxCornerDeviation()`.
+- jb-*-feasible rounds every corner a blend fits, which can be slower than
+  stopping where a blend's speed cap slows the neighbouring segments.
+  jb-*-faster rounds a corner only where that is faster than stopping, so it
+  is never slower than jb-*-strict, at a higher generation cost. Corner
+  deviations are bounded and reported by `Trajectory::maxCornerDeviation()`.
 - toppra-spline follows a smooth spline through all waypoints without
   stopping: shortest durations, but an unconstrained-jerk, non-polyline
   path.
@@ -317,9 +324,7 @@ def render(dt: float) -> str:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--dt", type=float, default=1e-3, help="sampling step for metrics [s]")
-    ap.add_argument(
-        "--output", type=str, default=os.path.join(HERE, "README.md"), help="markdown report destination"
-    )
+    ap.add_argument("--output", type=str, default=os.path.join(HERE, "README.md"), help="markdown report destination")
     args = ap.parse_args()
 
     doc = render(args.dt)
