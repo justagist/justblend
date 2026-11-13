@@ -48,7 +48,7 @@ def test_scurve_strict_corners(waypoints_3d, limits_3d):
 
 
 def test_sample_and_samples_dt_agree(waypoints_3d, limits_3d):
-    traj = _make_scurve(waypoints_3d, limits_3d, blend_radius=0.15, corner_handling=jb.CornerHandling.HYBRID)
+    traj = _make_scurve(waypoints_3d, limits_3d, blend_radius=0.15, corner_handling=jb.CornerHandling.BLEND_WHERE_FASTER)
     dense = traj.samples(dt=0.01)
     for i in (0, 5, 17, dense.q.shape[0] - 1):
         s = traj.sample(float(dense.t[i]))
@@ -58,7 +58,7 @@ def test_sample_and_samples_dt_agree(waypoints_3d, limits_3d):
 
 
 def test_samples_dt_and_times_agree(waypoints_3d, limits_3d):
-    traj = _make_scurve(waypoints_3d, limits_3d, blend_radius=0.15, corner_handling=jb.CornerHandling.HYBRID)
+    traj = _make_scurve(waypoints_3d, limits_3d, blend_radius=0.15, corner_handling=jb.CornerHandling.BLEND_WHERE_FASTER)
     by_dt = traj.samples(dt=0.005)
     by_t = traj.samples(np.asarray(by_dt.t))
     np.testing.assert_allclose(by_dt.q, by_t.q, atol=1e-15)
@@ -67,7 +67,7 @@ def test_samples_dt_and_times_agree(waypoints_3d, limits_3d):
 
 
 def test_endpoint_snap(waypoints_3d, limits_3d):
-    traj = _make_scurve(waypoints_3d, limits_3d, blend_radius=0.15, corner_handling=jb.CornerHandling.HYBRID)
+    traj = _make_scurve(waypoints_3d, limits_3d, blend_radius=0.15, corner_handling=jb.CornerHandling.BLEND_WHERE_FASTER)
     s0 = traj.sample(0.0)
     s1 = traj.sample(traj.duration())
     np.testing.assert_allclose(s0.q, waypoints_3d[0])
@@ -109,7 +109,7 @@ def test_trap_generator(waypoints_3d):
     )
     gen = jb.TrapezoidalTrajectoryGenerator(dim=3)
     gen.set_limits(L)
-    gen.set_options(jb.GenerationOptions(blend_radius=0.15, corner_handling=jb.CornerHandling.HYBRID))
+    gen.set_options(jb.GenerationOptions(blend_radius=0.15, corner_handling=jb.CornerHandling.BLEND_WHERE_FASTER))
     traj = gen.generate(waypoints_3d)
     assert traj.blend_shape() == jb.BlendShape.PARABOLIC
     r = traj.samples(dt=0.005)
@@ -119,7 +119,7 @@ def test_trap_generator(waypoints_3d):
 
 
 def test_segments_metadata(waypoints_3d, limits_3d):
-    traj = _make_scurve(waypoints_3d, limits_3d, blend_radius=0.15, corner_handling=jb.CornerHandling.HYBRID)
+    traj = _make_scurve(waypoints_3d, limits_3d, blend_radius=0.15, corner_handling=jb.CornerHandling.BLEND_WHERE_FASTER)
     segs = traj.segments()
     assert len(segs) == traj.num_segments()
     total = sum(s.duration for s in segs)
@@ -133,7 +133,7 @@ def test_segments_metadata(waypoints_3d, limits_3d):
 def test_use_blending_collapse_raises(limits_3d, waypoints_3d):
     gen = jb.SCurveTrajectoryGenerator(dim=3)
     gen.set_limits(limits_3d)
-    gen.set_options(jb.GenerationOptions(blend_radius=1e-12, corner_handling=jb.CornerHandling.USE_BLENDING))
+    gen.set_options(jb.GenerationOptions(blend_radius=1e-12, corner_handling=jb.CornerHandling.BLEND_ALL))
     with pytest.raises(jb.ValidationError):
         gen.generate(waypoints_3d)
 
@@ -150,7 +150,7 @@ def test_per_corner_blend_radii(waypoints_3d, limits_3d):
     opts = jb.GenerationOptions(
         blend_radius=999.0,
         blend_radii=radii,
-        corner_handling=jb.CornerHandling.HYBRID,
+        corner_handling=jb.CornerHandling.BLEND_ALL,
     )
     gen = jb.SCurveTrajectoryGenerator(dim=3)
     gen.set_limits(limits_3d)
@@ -166,7 +166,7 @@ def test_blend_radii_size_one_broadcasts(waypoints_3d, limits_3d):
     opts = jb.GenerationOptions(
         blend_radius=0.999,
         blend_radii=np.array([0.12]),
-        corner_handling=jb.CornerHandling.HYBRID,
+        corner_handling=jb.CornerHandling.BLEND_ALL,
     )
     gen = jb.SCurveTrajectoryGenerator(dim=3)
     gen.set_limits(limits_3d)
@@ -178,7 +178,7 @@ def test_blend_radii_size_one_broadcasts(waypoints_3d, limits_3d):
 def test_blend_radii_wrong_size_raises(waypoints_3d, limits_3d):
     opts = jb.GenerationOptions(
         blend_radii=np.array([0.1, 0.1]),  # need 3 or 1
-        corner_handling=jb.CornerHandling.HYBRID,
+        corner_handling=jb.CornerHandling.BLEND_WHERE_FASTER,
     )
     gen = jb.SCurveTrajectoryGenerator(dim=3)
     gen.set_limits(limits_3d)
@@ -206,7 +206,7 @@ def test_boundary_speeds():
 
 
 def test_waypoint_times_and_deviations(waypoints_3d, limits_3d):
-    traj = _make_scurve(waypoints_3d, limits_3d, blend_radius=0.15, corner_handling=jb.CornerHandling.HYBRID)
+    traj = _make_scurve(waypoints_3d, limits_3d, blend_radius=0.15, corner_handling=jb.CornerHandling.BLEND_WHERE_FASTER)
     wt = traj.waypoint_times()
     assert len(wt) == waypoints_3d.shape[0]
     assert wt[0] == 0.0
@@ -229,11 +229,11 @@ def test_waypoint_times_and_deviations(waypoints_3d, limits_3d):
 
 
 def test_scaling_factors(waypoints_3d, limits_3d):
-    full = _make_scurve(waypoints_3d, limits_3d, corner_handling=jb.CornerHandling.HYBRID)
+    full = _make_scurve(waypoints_3d, limits_3d, corner_handling=jb.CornerHandling.BLEND_WHERE_FASTER)
     scaled = _make_scurve(
         waypoints_3d,
         limits_3d,
-        corner_handling=jb.CornerHandling.HYBRID,
+        corner_handling=jb.CornerHandling.BLEND_WHERE_FASTER,
         velocity_scaling_factor=0.5,
         acceleration_scaling_factor=0.5,
     )
@@ -247,7 +247,7 @@ def test_scaling_factors(waypoints_3d, limits_3d):
 
 
 def test_stretched_to(waypoints_3d, limits_3d):
-    traj = _make_scurve(waypoints_3d, limits_3d, blend_radius=0.15, corner_handling=jb.CornerHandling.HYBRID)
+    traj = _make_scurve(waypoints_3d, limits_3d, blend_radius=0.15, corner_handling=jb.CornerHandling.BLEND_WHERE_FASTER)
     target = 2.0 * traj.duration()
     slow = traj.stretched_to(target)
     assert slow.duration() == target
@@ -284,7 +284,7 @@ def test_version_matches_package_metadata():
 
 
 def test_jerk_output(waypoints_3d, limits_3d):
-    traj = _make_scurve(waypoints_3d, limits_3d, blend_radius=0.15, corner_handling=jb.CornerHandling.HYBRID)
+    traj = _make_scurve(waypoints_3d, limits_3d, blend_radius=0.15, corner_handling=jb.CornerHandling.BLEND_WHERE_FASTER)
     r = traj.samples(dt=0.005)
     assert r.qddd.shape == r.qdd.shape
     for i in range(3):
@@ -293,9 +293,18 @@ def test_jerk_output(waypoints_3d, limits_3d):
 
 
 def test_max_corner_deviation(waypoints_3d, limits_3d):
-    traj = _make_scurve(waypoints_3d, limits_3d, corner_handling=jb.CornerHandling.HYBRID, max_corner_deviation=0.01)
+    traj = _make_scurve(waypoints_3d, limits_3d, corner_handling=jb.CornerHandling.BLEND_ALL, max_corner_deviation=0.01)
     assert traj.max_corner_deviation() == pytest.approx(0.01, abs=1e-12)
     with pytest.raises(jb.ValidationError):
         jb.SCurveTrajectoryGenerator(dim=3).set_options(
             jb.GenerationOptions(max_corner_deviation=0.01, blend_radii=np.array([0.1]))
         )
+
+
+def test_collinear_waypoints_are_merged():
+    gen = jb.SCurveTrajectoryGenerator(dim=2)
+    gen.set_limits(jb.Limits(v_max=np.ones(2), a_max=2 * np.ones(2), j_max=10 * np.ones(2)))
+    straight = gen.generate(np.array([[0.0, 0.0], [3.0, 0.0]]))
+    with_extra = gen.generate(np.array([[0.0, 0.0], [0.05, 0.0], [0.1, 0.0], [3.0, 0.0]]))
+    assert with_extra.duration() == pytest.approx(straight.duration(), rel=1e-15)
+    assert with_extra.corner_types()[1:3] == [jb.CornerType.PASS, jb.CornerType.PASS]

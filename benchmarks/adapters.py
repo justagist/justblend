@@ -11,6 +11,7 @@ from __future__ import annotations
 import os
 import sys
 import time
+import timeit
 from dataclasses import dataclass
 
 import numpy as np
@@ -33,23 +34,28 @@ class BenchResult:
     qdd: np.ndarray
 
 
-def _time_ms(fn, repeats: int = 3):
+def _time_ms(fn, repeats: int = 7):
     """Times a zero-argument callable.
+
+    Calls are timed in batches of at least 0.2 s, so microsecond calls are not
+    swamped by timer resolution and first-call effects; the best batch is kept.
 
     Args:
         fn (callable): Callable to run and time.
-        repeats (int): Number of runs; the best time is kept.
+        repeats (int): Number of batches. 1 times a single call instead, for
+            calls that must not be repeated.
 
     Returns:
-        tuple: (result of the last call, best wall-clock time in ms).
+        tuple: (result of a call, best wall-clock time per call in ms).
     """
-    best = float("inf")
-    out = None
-    for _ in range(repeats):
+    if repeats == 1:
         t0 = time.perf_counter()
         out = fn()
-        best = min(best, (time.perf_counter() - t0) * 1e3)
-    return out, best
+        return out, (time.perf_counter() - t0) * 1e3
+    timer = timeit.Timer(fn)
+    n, _ = timer.autorange()
+    best = min(timer.repeat(repeats, n)) / n
+    return fn(), best * 1e3
 
 
 def _sample_ruckig_trajectories(trajs, dof: int, dt: float):
@@ -223,9 +229,7 @@ def run_toppra_chained(name, W, v_max, a_max, dt) -> BenchResult:
 
     def build():
         return [
-            _toppra_parametrize(
-                ta.SplineInterpolator([0.0, 1.0], W[k : k + 2], bc_type="clamped"), v_max, a_max
-            )
+            _toppra_parametrize(ta.SplineInterpolator([0.0, 1.0], W[k : k + 2], bc_type="clamped"), v_max, a_max)
             for k in range(W.shape[0] - 1)
         ]
 

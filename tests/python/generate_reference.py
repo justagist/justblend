@@ -53,9 +53,14 @@ def main(ref_path: str) -> None:
             for ch, shape in product(("strict_corners", "hybrid", "use_blending"), ("parabolic", "hermite")):
                 try:
                     traj = ref.generate_trajectory(
-                        W, vmax, amax, jmax,
-                        corner_handling=ch, blend_radius=r,
-                        dt=dt, blend_shape=shape,
+                        W,
+                        vmax,
+                        amax,
+                        jmax,
+                        corner_handling=ch,
+                        blend_radius=r,
+                        dt=dt,
+                        blend_shape=shape,
                     )
                 except Exception as e:
                     print(f"  skip scurve {ds_name} {ch} {shape}: {e}")
@@ -63,10 +68,19 @@ def main(ref_path: str) -> None:
                 fname = f"{ds_name}__scurve__{ch}__{shape}.npz"
                 np.savez(
                     os.path.join(OUT_DIR, fname),
-                    t=traj["t"], q=traj["q"], qd=traj["qd"], qdd=traj["qdd"],
-                    waypoints=W, v_max=vmax, a_max=amax, j_max=jmax,
-                    dt=np.array(dt), blend_radius=np.array(r),
-                    profile="scurve", corner_handling=ch, blend_shape=shape,
+                    t=traj["t"],
+                    q=traj["q"],
+                    qd=traj["qd"],
+                    qdd=traj["qdd"],
+                    waypoints=W,
+                    v_max=vmax,
+                    a_max=amax,
+                    j_max=jmax,
+                    dt=np.array(dt),
+                    blend_radius=np.array(r),
+                    profile="scurve",
+                    corner_handling=ch,
+                    blend_shape=shape,
                     dataset=ds_name,
                 )
                 written.append(fname)
@@ -75,8 +89,12 @@ def main(ref_path: str) -> None:
         for ch in ("strict_corners", "hybrid"):
             try:
                 traj = ref.generate_trajectory(
-                    W, vmax, amax,
-                    corner_handling=ch, blend_radius=r, dt=dt,
+                    W,
+                    vmax,
+                    amax,
+                    corner_handling=ch,
+                    blend_radius=r,
+                    dt=dt,
                 )
             except Exception as e:
                 print(f"  skip trap {ds_name} {ch}: {e}")
@@ -84,10 +102,18 @@ def main(ref_path: str) -> None:
             fname = f"{ds_name}__trap__{ch}__parabolic.npz"
             np.savez(
                 os.path.join(OUT_DIR, fname),
-                t=traj["t"], q=traj["q"], qd=traj["qd"], qdd=traj["qdd"],
-                waypoints=W, v_max=vmax, a_max=amax,
-                dt=np.array(dt), blend_radius=np.array(r),
-                profile="trap", corner_handling=ch, blend_shape="parabolic",
+                t=traj["t"],
+                q=traj["q"],
+                qd=traj["qd"],
+                qdd=traj["qdd"],
+                waypoints=W,
+                v_max=vmax,
+                a_max=amax,
+                dt=np.array(dt),
+                blend_radius=np.array(r),
+                profile="trap",
+                corner_handling=ch,
+                blend_shape="parabolic",
                 dataset=ds_name,
             )
             written.append(fname)

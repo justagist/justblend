@@ -189,14 +189,14 @@ TEST(Validation, SampleCountAtIndexLimitRejected)
 
 TEST(Validation, SegmentTooShortForItsSpeedRejected)
 {
-    // The middle leg is crossed at full speed in under the shortest phase
+    // The segment is crossed at full speed in under the shortest phase
     // duration kept, so it would have no duration at all.
     TrapezoidalTrajectoryGenerator gen(1);
     Limits L;
     L.v_max = Eigen::VectorXd::Constant(1, 100.0);
     L.a_max = Eigen::VectorXd::Constant(1, 1e4);
     gen.setLimits(L);
-    Eigen::MatrixXd W(4, 1);
-    W << 0.0, 1.0, 1.0 + 1e-11, 2.0;
-    EXPECT_THROW(gen.generate(W), ValidationError);
+    Eigen::MatrixXd W(2, 1);
+    W << 0.0, 1e-11;
+    EXPECT_THROW(gen.generate(W, 100.0, 100.0), ValidationError);
 }

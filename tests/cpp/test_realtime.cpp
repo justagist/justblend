@@ -28,7 +28,7 @@ std::vector<Trajectory> blendedTrajectories()
     {
         GenerationOptions opts;
         opts.blend_radius = 0.15;
-        opts.corner_handling = CornerHandling::HYBRID;
+        opts.corner_handling = CornerHandling::BLEND_WHERE_FASTER;
         opts.blend_shape = shape;
 
         SCurveTrajectoryGenerator scurve(3);

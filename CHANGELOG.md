@@ -4,7 +4,49 @@ Notable changes to justblend. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.4.0] - 2026-11-13
+
+### Changed
+
+- `CornerHandling` values are renamed after what each mode does; the old
+  names are removed:
+
+  | Before | Now |
+  |---|---|
+  | `STRICT_CORNERS` | `STRICT_CORNERS` |
+  | `USE_BLENDING` | `BLEND_ALL` |
+  | `HYBRID` | `BLEND_WHERE_FEASIBLE` (same corner choice), or the new `BLEND_WHERE_FASTER` |
+- Collinear waypoints are merged into one straight segment in every mode,
+  so an S-curve no longer returns to zero acceleration at each of them. A
+  waypoint counts as collinear when it lies within `1e-6` times the run's
+  length of the run's straight line, in order. Fewer segments result.
+- `corner_deviations()` reports the distance from a merged collinear waypoint
+  to the merged segment, instead of zero. `junction_speeds()` reports the path
+  speed at a merged waypoint's passage time.
+- A blend radius is no longer clipped to half of a short collinear segment
+  next to the corner; it is clipped to half the merged segment, and so that
+  the blend does not start before a merged waypoint.
+
+### Added
+
+- `BLEND_WHERE_FASTER` blends or stops at each corner, whichever gives the
+  shorter trajectory. It is never slower than `STRICT_CORNERS` or than
+  blending every corner; on the `two_segments_2d` benchmark with S-curve and
+  Hermite blends it stops at both corners (4.173 s instead of 4.243 s). It
+  costs several times more to generate than the other modes.
+
+### Fixed
+
+- Collinear merging respects `max_corner_deviation`: a waypoint whose miss
+  exceeds it stays a corner, so `maxCornerDeviation()` no longer exceeds the
+  bound.
+- The `BLEND_WHERE_*` modes come to rest at the corner next to the start or
+  end where a blend leaves too little room to reach the requested boundary
+  speed, and then continue, instead of raising `ValidationError` as `HYBRID`
+  did.
+- A nearly collinear waypoint no longer causes a velocity jump: consecutive
+  directions that differed by up to about `1e-5` used to be passed at speed
+  without a blend.
 
 ## [0.3.0] - 2026-11-12
 

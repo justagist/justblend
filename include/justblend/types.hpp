@@ -35,18 +35,26 @@ enum class BlendShape
 };
 
 /// @brief How interior waypoints with a direction change are handled.
+///
+/// A blend cannot be used where the corner is a near-reversal, where the
+/// radius left after clipping is too small, where the limits force its speed
+/// to zero, or, next to an end, where it leaves too little room to reach the
+/// requested boundary speed. BLEND_ALL rejects such a corner; the
+/// BLEND_WHERE_* modes instead come to rest at that waypoint and continue
+/// from it.
 enum class CornerHandling
 {
-    STRICT_CORNERS, ///< Full stop at every direction change; exact pass-through.
-    USE_BLENDING,   ///< Blend every corner; throw ValidationError when infeasible.
-    HYBRID,         ///< Blend where feasible, fall back to a stop otherwise.
+    STRICT_CORNERS,       ///< Full stop at every direction change; exact pass-through.
+    BLEND_ALL,            ///< Blend every corner; throw ValidationError where a blend cannot be used.
+    BLEND_WHERE_FEASIBLE, ///< Blend every corner that allows it, even where stopping would be faster.
+    BLEND_WHERE_FASTER,   ///< Blend only where that gives a shorter trajectory than stopping.
 };
 
 /// @brief Classification of each waypoint in the planned trajectory.
 enum class CornerType
 {
     ENDPOINT, ///< First or last waypoint.
-    PASS,     ///< Collinear waypoint passed at speed.
+    PASS,     ///< Collinear waypoint, merged into a straight segment and passed at speed.
     STOP,     ///< Full stop at the waypoint.
     BLEND,    ///< Corner rounded by a blend segment.
 };
@@ -62,8 +70,9 @@ enum class SegmentType
 struct GenerationOptions
 {
     // Scalar fallback used when blend_radii is unset (the common case). At
-    // each corner the radius is clipped to half the shorter adjacent segment;
-    // Trajectory::blendRadii() reports the radius actually used.
+    // each corner the radius is clipped to half the shorter adjacent segment,
+    // and so that the blend does not start before a merged collinear
+    // waypoint; Trajectory::blendRadii() reports the radius actually used.
     double blend_radius = 0.1;
 
     // Optional per-corner radii. If size == 1 it broadcasts (equivalent to

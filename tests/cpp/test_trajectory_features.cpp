@@ -115,7 +115,7 @@ TEST(CornerDeviation, HermiteMatchesDenseSampling)
     gen.setLimits(limits2d(1.0, 2.0, 10.0));
     GenerationOptions opts;
     opts.blend_radius = 0.2;
-    opts.corner_handling = CornerHandling::HYBRID;
+    opts.corner_handling = CornerHandling::BLEND_WHERE_FASTER;
     gen.setOptions(opts);
 
     auto traj = gen.generate(W);
@@ -142,7 +142,7 @@ TEST(CornerDeviation, ParabolicMatchesDenseSampling)
     gen.setLimits(L);
     GenerationOptions opts;
     opts.blend_radius = 0.2;
-    opts.corner_handling = CornerHandling::HYBRID;
+    opts.corner_handling = CornerHandling::BLEND_WHERE_FASTER;
     gen.setOptions(opts);
 
     auto traj = gen.generate(W);
@@ -162,7 +162,7 @@ TEST(WaypointTimes, BlendCornersPassAtClosestApproach)
     gen.setLimits(limits2d(1.0, 2.0, 10.0));
     GenerationOptions opts;
     opts.blend_radius = 0.1;
-    opts.corner_handling = CornerHandling::HYBRID;
+    opts.corner_handling = CornerHandling::BLEND_WHERE_FASTER;
     gen.setOptions(opts);
 
     auto traj = gen.generate(W);
@@ -182,8 +182,9 @@ TEST(WaypointTimes, BlendCornersPassAtClosestApproach)
         if (traj.cornerTypes()[k] == CornerType::BLEND)
         {
             auto s = traj.sample(wt[k]);
-            EXPECT_NEAR((s.q - W.row(static_cast<Eigen::Index>(k)).transpose()).norm(),
-                        traj.cornerDeviations()[k], 1e-9);
+            EXPECT_NEAR(
+                (s.q - W.row(static_cast<Eigen::Index>(k)).transpose()).norm(), traj.cornerDeviations()[k], 1e-9
+            );
         }
     }
 }
@@ -218,7 +219,7 @@ TEST(SegmentStartTimes, MatchSegmentDurations)
     gen.setLimits(limits2d(1.0, 2.0, 10.0));
     GenerationOptions opts;
     opts.blend_radius = 0.1;
-    opts.corner_handling = CornerHandling::HYBRID;
+    opts.corner_handling = CornerHandling::BLEND_WHERE_FASTER;
     gen.setOptions(opts);
 
     auto traj = gen.generate(W);
@@ -261,7 +262,7 @@ TEST(Stretch, MatchesTargetDurationAndPreservesPath)
     gen.setLimits(limits2d(1.0, 2.0, 10.0));
     GenerationOptions opts;
     opts.blend_radius = 0.1;
-    opts.corner_handling = CornerHandling::HYBRID;
+    opts.corner_handling = CornerHandling::BLEND_WHERE_FASTER;
     gen.setOptions(opts);
 
     auto traj = gen.generate(W);
