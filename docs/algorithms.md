@@ -24,8 +24,9 @@ The result is a lazy `Trajectory` that evaluates its segments on demand.
 ## Collinear merging
 
 A run of waypoints is merged into one leg when every inner waypoint lies
-within `1e-6` times the run's length of the run's chord, and the inner
-waypoints appear in order along it. Each run starts at the first waypoint
+within `1e-6` times the run's length of the run's chord (and within
+`max_corner_deviation`, when set), and the inner waypoints appear in order
+along it. Each run starts at the first waypoint
 not yet merged; its end is found by doubling the run length until the test
 fails, then bisecting back. Every merged run is checked waypoint by
 waypoint, so the search costs `O(n log n)` on long straight runs instead of
@@ -90,7 +91,10 @@ the trapezoidal profile. For the S-curve profile it is found by bisecting
 the speed (80 steps) on the closed-form distance of a jerk-limited ramp.
 
 A blend whose junction speed comes out below `1e-6` has collapsed: it turns
-into a stop and the passes run again, or `BLEND_ALL` raises.
+into a stop and the passes run again, or `BLEND_ALL` raises. In the
+`BLEND_WHERE_*` modes, a blend next to an end whose boundary speed is out of
+reach turns into a stop the same way; if the boundary speed is still out of
+reach, generation raises.
 
 ## Choosing the fastest corners
 

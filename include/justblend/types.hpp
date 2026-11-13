@@ -37,9 +37,11 @@ enum class BlendShape
 /// @brief How interior waypoints with a direction change are handled.
 ///
 /// A blend cannot be used where the corner is a near-reversal, where the
-/// radius left after clipping is too small, or where the limits force its
-/// speed to zero. BLEND_ALL rejects such a corner; the BLEND_WHERE_* modes
-/// stop there instead.
+/// radius left after clipping is too small, where the limits force its speed
+/// to zero, or, next to an end, where it leaves too little room to reach the
+/// requested boundary speed. BLEND_ALL rejects such a corner; the
+/// BLEND_WHERE_* modes instead come to rest at that waypoint and continue
+/// from it.
 enum class CornerHandling
 {
     STRICT_CORNERS,       ///< Full stop at every direction change; exact pass-through.

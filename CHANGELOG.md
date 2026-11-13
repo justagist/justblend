@@ -37,6 +37,13 @@ Notable changes to justblend. The format follows
 
 ### Fixed
 
+- Collinear merging respects `max_corner_deviation`: a waypoint whose miss
+  exceeds it stays a corner, so `maxCornerDeviation()` no longer exceeds the
+  bound.
+- The `BLEND_WHERE_*` modes come to rest at the corner next to the start or
+  end where a blend leaves too little room to reach the requested boundary
+  speed, and then continue, instead of raising `ValidationError` as `HYBRID`
+  did.
 - A nearly collinear waypoint no longer causes a velocity jump: consecutive
   directions that differed by up to about `1e-5` used to be passed at speed
   without a blend.

@@ -311,6 +311,37 @@ TEST_P(FallbackToStop, UnusableRadiusStops)
         EXPECT_EQ(traj.cornerTypes()[k], CornerType::STOP) << "waypoint " << k;
 }
 
+TEST_P(FallbackToStop, BoundarySpeedStopsNextCorner)
+{
+    // The first leg is short and the corner sharp: blending leaves too little
+    // room to slow from v_start to the blend's speed cap, while a stop gives
+    // the leg its full length. Reversed, the same holds for v_end.
+    const double turn = 110.0 * std::acos(-1.0) / 180.0;
+    Eigen::MatrixXd W(3, 2);
+    W << 0.0, 0.0, 0.125, 0.0, 0.125 + std::cos(turn), std::sin(turn);
+    const Eigen::MatrixXd reversed = W.colwise().reverse();
+    Limits L;
+    L.v_max = Eigen::VectorXd::Constant(2, 1.0);
+    L.a_max = Eigen::VectorXd::Constant(2, 2.0);
+    TrapezoidalTrajectoryGenerator gen(2);
+    gen.setLimits(L);
+    GenerationOptions opts;
+    opts.blend_radius = 0.35;
+    opts.corner_handling = CornerHandling::BLEND_ALL;
+    gen.setOptions(opts);
+    EXPECT_THROW(gen.generate(W, 0.7, 0.0), ValidationError);
+    EXPECT_THROW(gen.generate(reversed, 0.0, 0.7), ValidationError);
+
+    opts.corner_handling = GetParam();
+    gen.setOptions(opts);
+    const auto from_speed = gen.generate(W, 0.7, 0.0);
+    EXPECT_EQ(from_speed.cornerTypes()[1], CornerType::STOP);
+    EXPECT_NEAR(from_speed.sample(0.0).qd.norm(), 0.7, 1e-12);
+    const auto to_speed = gen.generate(reversed, 0.0, 0.7);
+    EXPECT_EQ(to_speed.cornerTypes()[1], CornerType::STOP);
+    EXPECT_NEAR(to_speed.sample(to_speed.duration()).qd.norm(), 0.7, 1e-12);
+}
+
 INSTANTIATE_TEST_SUITE_P(
     Modes, FallbackToStop, ::testing::Values(CornerHandling::BLEND_WHERE_FEASIBLE, CornerHandling::BLEND_WHERE_FASTER),
     [](const ::testing::TestParamInfo<CornerHandling>& info)
@@ -492,6 +523,30 @@ INSTANTIATE_TEST_SUITE_P(
         }
     }
 );
+
+TEST(CornerHandling, CollinearMergeRespectsMaxCornerDeviation)
+{
+    // The middle waypoint is within the relative collinear tolerance but
+    // misses the chord by more than the requested deviation bound.
+    SCurveTrajectoryGenerator gen(2);
+    gen.setLimits(unitLimits2d());
+    GenerationOptions opts;
+    opts.max_corner_deviation = 1e-9;
+    Eigen::MatrixXd W(3, 2);
+    W << 0.0, 0.0, 1.0, 1.0, 2.0, 2.000001;
+
+    opts.corner_handling = CornerHandling::BLEND_WHERE_FEASIBLE;
+    gen.setOptions(opts);
+    const auto blended = gen.generate(W);
+    EXPECT_EQ(blended.cornerTypes()[1], CornerType::BLEND);
+    EXPECT_LE(blended.maxCornerDeviation(), 1e-9 * (1.0 + 1e-12));
+
+    opts.corner_handling = CornerHandling::STRICT_CORNERS;
+    gen.setOptions(opts);
+    const auto stopped = gen.generate(W);
+    EXPECT_EQ(stopped.cornerTypes()[1], CornerType::STOP);
+    EXPECT_EQ(stopped.maxCornerDeviation(), 0.0);
+}
 
 TEST(CornerHandling, ReversalAlongTheSameLineIsNotMerged)
 {

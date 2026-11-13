@@ -15,8 +15,9 @@ picks how that choice is made.
 | `BLEND_WHERE_FASTER` | blends only where that is faster than stopping | stops | up to about 40x strict |
 
 A blend cannot be used at a corner that turns back within about 2.6 degrees
-of a full reversal, where the radius left after clipping is below `1e-9`, or
-where the limits force the blend's speed to zero. See
+of a full reversal, where the radius left after clipping is below `1e-9`,
+where the limits force the blend's speed to zero, or next to an end where it
+leaves too little room to reach the requested boundary speed. See
 [Corner details](#corner-details).
 
 ![The four corner modes on one path](corner_modes.png)
@@ -151,8 +152,15 @@ the profile keeps accelerating through them instead of being split at each.
 A waypoint counts as collinear when it lies within `1e-6` times the run's
 length of the straight line through the run, in order along it. It is passed
 at speed and reported as `PASS`, missed by at most that distance, which
-`cornerDeviations()` reports. A waypoint where the path doubles back along
-the same line is not merged.
+`cornerDeviations()` reports. When `max_corner_deviation` is set, a waypoint
+is merged only if its miss is also within that bound. A waypoint where the
+path doubles back along the same line is not merged.
+
+Each run is grown from its first waypoint by a doubling and bisection
+search, which stops at a waypoint that fails the test even if a longer run
+through it would pass, because the tolerance grows with the run's length.
+Such a waypoint stays a corner, which is correct but may cost a blend or a
+stop.
 
 ### Corners that cannot be blended
 
@@ -163,6 +171,10 @@ the same line is not merged.
   example because a neighbouring segment is almost zero length.
 - **Collapsed blends**: the speed the limits allow at the blend falls below
   `1e-6`, for example on a very short segment with a very low jerk limit.
+- **Boundary speeds**: next to the start or end, a blend can leave too little
+  of a short segment to slow from `v_start`, or reach `v_end`, at the
+  blend's speed cap, where a stop gives the segment its full length.
 
 `BLEND_ALL` raises a `ValidationError` naming the waypoint. The
-`BLEND_WHERE_*` modes stop there instead.
+`BLEND_WHERE_*` modes instead come to rest at that waypoint and continue from
+it, as `STRICT_CORNERS` does at every corner.

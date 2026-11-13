@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <sstream>
 
 #include "internal/blend.hpp"
@@ -44,19 +45,22 @@ struct Leg
 /// @param W Waypoint matrix, one waypoint per row.
 /// @param a First waypoint of the run.
 /// @param b Last waypoint of the run.
-/// @return True when every inner waypoint lies, in order, within
-/// kCollinearTolerance of the chord from a to b.
-bool isStraightRun(const Eigen::MatrixXd& W, Eigen::Index a, Eigen::Index b)
+/// @param max_miss Largest distance an inner waypoint may be from the chord,
+/// on top of the relative kCollinearTolerance.
+/// @return True when every inner waypoint lies, in order, within the
+/// tolerance of the chord from a to b.
+bool isStraightRun(const Eigen::MatrixXd& W, Eigen::Index a, Eigen::Index b, double max_miss)
 {
     const Eigen::VectorXd chord = (W.row(b) - W.row(a)).transpose();
     const double length = chord.norm();
     const Eigen::VectorXd e = chord / length;
+    const double tolerance = std::min(kCollinearTolerance * length, max_miss);
     double previous = 0.0;
     for (Eigen::Index i = a + 1; i < b; ++i)
     {
         const Eigen::VectorXd offset = (W.row(i) - W.row(a)).transpose();
         const double s = offset.dot(e);
-        if (!(s > previous) || !(s < length) || (offset - s * e).norm() > kCollinearTolerance * length)
+        if (!(s > previous) || !(s < length) || (offset - s * e).norm() > tolerance)
             return false;
         previous = s;
     }
@@ -66,8 +70,9 @@ bool isStraightRun(const Eigen::MatrixXd& W, Eigen::Index a, Eigen::Index b)
 /// @brief Split the waypoints into straight runs, each extended as far as a
 /// doubling-and-bisection search for its end finds.
 /// @param W Waypoint matrix, one waypoint per row; consecutive rows are distinct.
+/// @param max_miss Largest distance a merged waypoint may be from its leg.
 /// @return The legs of the reduced path, in order.
-std::vector<Leg> mergeCollinear(const Eigen::MatrixXd& W)
+std::vector<Leg> mergeCollinear(const Eigen::MatrixXd& W, double max_miss)
 {
     std::vector<Leg> legs;
     Eigen::Index a = 0;
@@ -77,7 +82,7 @@ std::vector<Leg> mergeCollinear(const Eigen::MatrixXd& W)
         // doubling and then bisecting rather than one waypoint at a time.
         Eigen::Index b = a + 1;
         Eigen::Index too_far = b + 1;
-        while (too_far < W.rows() && isStraightRun(W, a, too_far))
+        while (too_far < W.rows() && isStraightRun(W, a, too_far, max_miss))
         {
             b = too_far;
             too_far = a + 2 * (too_far - a);
@@ -86,7 +91,7 @@ std::vector<Leg> mergeCollinear(const Eigen::MatrixXd& W)
         while (too_far - b > 1)
         {
             const Eigen::Index mid = b + (too_far - b) / 2;
-            if (isStraightRun(W, a, mid))
+            if (isStraightRun(W, a, mid, max_miss))
                 b = mid;
             else
                 too_far = mid;
@@ -518,7 +523,10 @@ std::shared_ptr<PlannedTrajectoryData> plan(
     // Collinear waypoints are merged into one straight leg, so the profile
     // does not have to pass them at a junction. Vertex k of the reduced path
     // joins leg k - 1 to leg k.
-    const std::vector<Leg> legs = mergeCollinear(waypoints);
+    // A merged waypoint's miss counts as a corner deviation, so it must also
+    // respect the requested bound.
+    const std::vector<Leg> legs =
+        mergeCollinear(waypoints, options.max_corner_deviation.value_or(std::numeric_limits<double>::infinity()));
     const auto M = static_cast<Eigen::Index>(legs.size()) + 1;
     std::vector<Eigen::Index> vertex(static_cast<std::size_t>(M));
     for (Eigen::Index m = 0; m < M - 1; ++m)
@@ -636,11 +644,13 @@ std::shared_ptr<PlannedTrajectoryData> plan(
         }
     }
 
-    // Blends whose speed the passes force to zero revert to stops.
+    // Blends whose speed the passes force to zero revert to stops, and so do
+    // blends next to an end that leave too little room to reach its boundary
+    // speed: a stop gives the leg its full length instead.
     while (true)
     {
         solveSpeeds(problem, speeds);
-        bool collapsed = false;
+        std::vector<Eigen::Index> to_stop;
         for (Eigen::Index k = 1; k < M - 1; ++k)
         {
             if (vertex_type[k] == CornerType::BLEND && speeds.U(k) < 1e-6)
@@ -653,18 +663,28 @@ std::shared_ptr<PlannedTrajectoryData> plan(
                            "there instead.";
                     throw ValidationError(oss.str());
                 }
-                vertex_type[k] = CornerType::STOP;
-                problem.blend_r[k] = 0.0;
-                problem.blend_v_cap[k] = 0.0;
-                collapsed = true;
+                to_stop.push_back(k);
             }
         }
-        if (!collapsed)
+        if (options.corner_handling != CornerHandling::BLEND_ALL && M > 2)
+        {
+            if (speeds.U(0) + 1e-9 < v_start && vertex_type[1] == CornerType::BLEND)
+                to_stop.push_back(1);
+            if (speeds.U(M - 1) + 1e-9 < v_end && vertex_type[M - 2] == CornerType::BLEND)
+                to_stop.push_back(M - 2);
+        }
+        if (to_stop.empty())
             break;
+        for (Eigen::Index k : to_stop)
+        {
+            vertex_type[k] = CornerType::STOP;
+            problem.blend_r[k] = 0.0;
+            problem.blend_v_cap[k] = 0.0;
+        }
     }
 
     // The passes only ever lower junction speeds, so a boundary speed that
-    // came out below the request cannot be realised on this path.
+    // came out below the request cannot be realised with these corners.
     if (speeds.U(0) + 1e-9 < v_start)
     {
         throw ValidationError(
